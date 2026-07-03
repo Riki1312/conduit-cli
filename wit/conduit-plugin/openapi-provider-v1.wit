@@ -1,0 +1,115 @@
+package conduit:plugin;
+
+interface metadata {
+  record plugin-metadata {
+    id: string,
+    version: string,
+    protocol-version: string,
+    providers: list<string>,
+  }
+
+  metadata: func() -> plugin-metadata;
+}
+
+interface file-read-v1 {
+  variant file-read-error-kind {
+    not-found,
+    invalid-path,
+    permission-denied,
+    internal,
+  }
+
+  record file-read-error {
+    kind: file-read-error-kind,
+    message: string,
+  }
+
+  read-text: func(path: string) -> result<string, file-read-error>;
+}
+
+interface http-client-v1 {
+  variant http-error-kind {
+    invalid-url,
+    permission-denied,
+    unavailable,
+    internal,
+  }
+
+  record http-error {
+    kind: http-error-kind,
+    message: string,
+  }
+
+  record http-response {
+    status: u16,
+    body: string,
+  }
+
+  get: func(url: string) -> result<http-response, http-error>;
+}
+
+interface openapi-provider-v1 {
+  record operation-request {
+    service: string,
+    environment: option<string>,
+    method: option<string>,
+    path: option<string>,
+  }
+
+  variant parameter-location {
+    path,
+    query,
+    header,
+    cookie,
+  }
+
+  record parameter {
+    name: string,
+    location: parameter-location,
+    required: bool,
+    description: option<string>,
+    schema-json: option<string>,
+  }
+
+  record operation {
+    service: string,
+    environment: option<string>,
+    method: string,
+    path: string,
+    parameters: list<parameter>,
+    operation-id: option<string>,
+    summary: option<string>,
+    description: option<string>,
+    request-schema-json: option<string>,
+    response-schema-json: option<string>,
+    source: option<string>,
+  }
+
+  variant provider-error-kind {
+    not-found,
+    invalid-request,
+    auth-required,
+    permission-denied,
+    unavailable,
+    unsupported,
+    internal,
+  }
+
+  record provider-error {
+    kind: provider-error-kind,
+    message: string,
+    details: option<string>,
+    source: option<string>,
+  }
+
+  get-operation: func(request: operation-request) -> result<operation, provider-error>;
+  operations: func(request: operation-request) -> result<list<operation>, provider-error>;
+}
+
+world openapi-provider {
+  import file-read-v1;
+  import http-client-v1;
+
+  export metadata;
+  export openapi-provider-v1;
+}

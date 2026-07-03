@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.example.PaymentServiceTest" tests="3" failures="1" errors="1" skipped="0">
+  <testcase classname="com.example.PaymentServiceTest" name="createsPayment">
+    <failure message="expected:&lt;200&gt; but was:&lt;500&gt;" type="org.opentest4j.AssertionFailedError">
+      org.opentest4j.AssertionFailedError: expected:&lt;200&gt; but was:&lt;500&gt;
+        at com.example.PaymentServiceTest.createsPayment(PaymentServiceTest.java:42)
+    </failure>
+  </testcase>
+  <testcase classname="com.example.PaymentServiceTest" name="loadsPayment" />
+  <testcase classname="com.example.PaymentServiceTest" name="refundsPayment">
+    <error message="connection refused" type="java.lang.IllegalStateException">
+      java.lang.IllegalStateException: connection refused
+        at com.example.PaymentServiceTest.refundsPayment(PaymentServiceTest.java:67)
+    </error>
+  </testcase>
+</testsuite>

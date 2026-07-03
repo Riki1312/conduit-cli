@@ -1,0 +1,177 @@
+package conduit:plugin;
+
+interface http-client-v2 {
+  variant http-method {
+    get,
+    post,
+  }
+
+  variant http-error-kind {
+    invalid-url,
+    permission-denied,
+    unavailable,
+    internal,
+  }
+
+  record http-header {
+    name: string,
+    value: string,
+  }
+
+  record http-request {
+    method: http-method,
+    url: string,
+    headers: list<http-header>,
+    body: option<string>,
+    timeout-ms: option<u32>,
+  }
+
+  record http-error {
+    kind: http-error-kind,
+    message: string,
+  }
+
+  record http-response {
+    status: u16,
+    headers: list<http-header>,
+    body: string,
+  }
+
+  request: func(request: http-request) -> result<http-response, http-error>;
+}
+
+interface secret-store-v1 {
+  variant secret-error-kind {
+    not-found,
+    invalid-name,
+    permission-denied,
+    internal,
+  }
+
+  record secret-error {
+    kind: secret-error-kind,
+    message: string,
+  }
+
+  read: func(name: string) -> result<option<string>, secret-error>;
+  write: func(name: string, value: string) -> result<bool, secret-error>;
+  delete: func(name: string) -> result<bool, secret-error>;
+}
+
+interface logs-provider-v1 {
+  record time-range {
+    %from: string,
+    to: option<string>,
+    source: string,
+  }
+
+  record log-query {
+    service: string,
+    environment: option<string>,
+    time-range: time-range,
+    limit: u32,
+    levels: list<string>,
+    cid: option<string>,
+    trace-id: option<string>,
+    message: option<string>,
+    logger: option<string>,
+    /// Message fragments that should be excluded after positive filters match.
+    exclude-messages: list<string>,
+    /// Logger, class, module, or component fragments that should be excluded.
+    exclude-loggers: list<string>,
+    include-trace: bool,
+    cursor: option<string>,
+  }
+
+  record auth-request {
+    environment: option<string>,
+    secret: option<string>,
+    /// Validate already stored auth material instead of storing new material.
+    check: bool,
+  }
+
+  variant log-status {
+    ok,
+    partial,
+    auth-required,
+    unavailable,
+    invalid-request,
+    error,
+  }
+
+  record log-event {
+    id: option<string>,
+    timestamp: string,
+    level: option<string>,
+    service: option<string>,
+    environment: option<string>,
+    cid: option<string>,
+    trace-id: option<string>,
+    logger: option<string>,
+    message: string,
+    stack-trace: option<string>,
+    source: option<string>,
+    attributes-json: option<string>,
+  }
+
+  variant auth-status {
+    ok,
+    action-required,
+  }
+
+  record diagnostic {
+    kind: string,
+    hint: option<string>,
+  }
+
+  record auth-result {
+    status: auth-status,
+    provider: string,
+    environment: option<string>,
+    destination: option<string>,
+    expires-at: option<string>,
+    diagnostics: list<diagnostic>,
+  }
+
+  record search-result {
+    status: log-status,
+    provider: string,
+    service: string,
+    environment: option<string>,
+    time-range: time-range,
+    matches: option<u64>,
+    shown: u64,
+    logs: list<log-event>,
+    next-cursor: option<string>,
+    checked-until: option<string>,
+    diagnostics: list<diagnostic>,
+  }
+
+  variant provider-error-kind {
+    auth-required,
+    invalid-request,
+    permission-denied,
+    unavailable,
+    unsupported,
+    internal,
+  }
+
+  record provider-error {
+    kind: provider-error-kind,
+    message: string,
+    details: option<string>,
+    source: option<string>,
+  }
+
+  search: func(query: log-query) -> result<search-result, provider-error>;
+  authenticate: func(request: auth-request) -> result<auth-result, provider-error>;
+}
+
+world logs-provider {
+  import file-read-v1;
+  import http-client-v2;
+  import secret-store-v1;
+
+  export metadata;
+  export logs-provider-v1;
+}
