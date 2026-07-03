@@ -427,9 +427,11 @@ hosts = ["logs.example.com"]
 [plugins.company.capabilities.secrets]
 names = ["company-logs/staging/cookie"]
 
+[defaults]
+environment = "staging"
+
 [logs]
 provider = "company"
-default_environment = "staging"
 default_since = "15m"
 ```
 
@@ -438,9 +440,9 @@ project should decide which provider handles logs for that repository; the user
 should decide how their local credentials are acquired and stored.
 
 Logs commands use the nearest ancestor `.conduit/conduit.toml` that defines
-`[logs]`. If Conduit sees project config but no logs provider is configured, it
-fails explicitly instead of falling back to fixture logs. This keeps fixture
-data useful for demos while preventing misleading results in real workspaces.
+`[logs]`. If no logs provider is configured, Conduit fails explicitly instead
+of falling back to fixture logs. Fixture providers remain useful for tests and
+explicit demos, without creating misleading results in real workspaces.
 
 ## OpenSearch Plugin Example
 

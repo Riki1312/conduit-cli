@@ -203,9 +203,11 @@ path = ".conduit/plugins/company.wasm"
 [openapi]
 provider = "company"
 
+[defaults]
+environment = "staging"
+
 [logs]
 provider = "company"
-default_environment = "staging"
 ```
 
 Plugin artifacts may embed metadata for distribution and compatibility checks,

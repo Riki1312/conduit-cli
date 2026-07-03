@@ -45,16 +45,13 @@ These commands show the intended shape of Conduit output:
 ```bash
 conduit test run gradle --tests SomeTest
 conduit test failed
-conduit logs search fixture-service --date 2026-05-22 --limit 1
-conduit openapi operation --service catalog-service --method GET --path /items
-conduit db read checkout-service payment_account --id acc_123
 conduit git status
 conduit worktree list --root ..
 ```
 
 For real project integrations, configure providers and profiles in
-`.conduit/conduit.toml`. Without project config, the OpenAPI and logs commands
-use public-safe fixture providers so the CLI can be tried immediately.
+`.conduit/conduit.toml`. Provider-backed commands fail with a clear error until
+a project config selects a provider.
 
 ## Tests
 
@@ -173,9 +170,11 @@ hosts = ["logs.example.com"]
 [plugins.company-logs.capabilities.secrets]
 names = ["company-logs/staging/token"]
 
+[defaults]
+environment = "staging"
+
 [logs]
 provider = "company-logs"
-default_environment = "staging"
 default_since = "15m"
 ```
 
@@ -187,7 +186,7 @@ or tokens.
 ## OpenAPI
 
 OpenAPI commands expose normalized API operation facts from a configured
-provider. The built-in fixture provider works without project config.
+provider. Projects must configure a provider explicitly.
 
 ```bash
 conduit openapi operation --service catalog-service --method GET --path /items
@@ -214,8 +213,7 @@ provider = "company-openapi"
 ## DB
 
 DB commands expose constrained operational data access through service-owned
-resources. The first slice is read-only and uses a built-in fixture provider
-unless a project config selects a DB plugin.
+resources. The first slice is read-only and requires a configured DB provider.
 
 ```bash
 conduit db resources checkout-service --env test
@@ -244,9 +242,11 @@ names = [
   "company-db/checkout/test/password",
 ]
 
+[defaults]
+environment = "staging"
+
 [db]
 provider = "company-db"
-default_environment = "test"
 ```
 
 The PostgreSQL host capability is read-only and exact-connection based; plugins

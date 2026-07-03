@@ -6,19 +6,33 @@ use crate::plugin_runtime::{PluginRuntime, PluginRuntimeError};
 const EXPECTED_PROTOCOL_VERSION: &str = "1";
 const OPENAPI_PROVIDER: &str = "openapi-provider-v1";
 
-type OpenApiProviderResult = Result<Box<dyn OpenApiProvider>, OpenApiProviderLoadError>;
+pub(crate) struct ConfiguredOpenApiProvider {
+    pub(crate) provider: Box<dyn OpenApiProvider>,
+    pub(crate) default_environment: Option<String>,
+}
 
-pub(crate) fn configured_openapi_provider() -> OpenApiProviderResult {
+pub(crate) fn configured_openapi_provider()
+-> Result<ConfiguredOpenApiProvider, OpenApiProviderLoadError> {
     let search =
         ConduitConfig::load_current_dir_for_openapi().map_err(OpenApiProviderLoadError::from)?;
-    let Some(config) = search.config else {
-        if search.found_any_config {
-            return Err(OpenApiProviderLoadError {
-                message: "openapi provider is not configured in .conduit/conduit.toml".to_string(),
-            });
-        }
-        return Ok(Box::new(FixtureOpenApiProvider));
+    let Some(config) = &search.config else {
+        return Err(OpenApiProviderLoadError {
+            message: "openapi provider is not configured in .conduit/conduit.toml".to_string(),
+        });
     };
+    let default_environment = config.defaults().environment;
+    let provider_name = config
+        .openapi()
+        .and_then(|openapi| openapi.provider)
+        .ok_or_else(|| OpenApiProviderLoadError {
+            message: "openapi provider is not configured in .conduit/conduit.toml".to_string(),
+        })?;
+    if provider_name == "fixture" {
+        return Ok(ConfiguredOpenApiProvider {
+            provider: Box::new(FixtureOpenApiProvider),
+            default_environment,
+        });
+    }
     let Some(plugin) = config
         .openapi_plugin()
         .map_err(OpenApiProviderLoadError::from)?
@@ -38,7 +52,10 @@ pub(crate) fn configured_openapi_provider() -> OpenApiProviderResult {
             .map_err(OpenApiProviderLoadError::from)?,
     )?;
 
-    Ok(Box::new(provider))
+    Ok(ConfiguredOpenApiProvider {
+        provider: Box::new(provider),
+        default_environment,
+    })
 }
 
 #[derive(Debug, PartialEq, Eq)]

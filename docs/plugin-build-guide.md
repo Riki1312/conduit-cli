@@ -69,9 +69,11 @@ hosts = ["logs.example.com"]
 [plugins.company-logs.capabilities.secrets]
 names = ["company-logs/staging/token"]
 
+[defaults]
+environment = "staging"
+
 [logs]
 provider = "company-logs"
-default_environment = "staging"
 default_since = "15m"
 ```
 
@@ -92,9 +94,11 @@ names = [
   "company-db/checkout/test/password",
 ]
 
+[defaults]
+environment = "staging"
+
 [db]
 provider = "company-db"
-default_environment = "test"
 ```
 
 PostgreSQL connections default to `ssl_mode = "disable"`. Use

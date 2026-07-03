@@ -20,28 +20,30 @@ pub(crate) fn configured_db_provider() -> Result<ConfiguredDbProvider, DbProvide
         .transpose()
         .map_err(DbProviderLoadError::from)?
         .flatten();
-    let default_environment = db.as_ref().and_then(|db| db.default_environment.clone());
+    let default_environment = search
+        .config
+        .as_ref()
+        .and_then(|config| config.defaults().environment);
 
     let Some(config) = &search.config else {
-        if search.found_any_config {
-            return Err(DbProviderLoadError {
-                message: "db provider is not configured in .conduit/conduit.toml".to_string(),
-            });
-        }
-        return Ok(ConfiguredDbProvider {
-            provider: Box::new(FixtureDbProvider),
-            default_environment,
-        });
-    };
-    if db.as_ref().and_then(|db| db.provider.as_deref()).is_none() {
         return Err(DbProviderLoadError {
             message: "db provider is not configured in .conduit/conduit.toml".to_string(),
         });
-    }
-    let Some(plugin) = config.db_plugin().map_err(DbProviderLoadError::from)? else {
+    };
+    let Some(provider_name) = db.as_ref().and_then(|db| db.provider.as_deref()) else {
+        return Err(DbProviderLoadError {
+            message: "db provider is not configured in .conduit/conduit.toml".to_string(),
+        });
+    };
+    if provider_name == "fixture" {
         return Ok(ConfiguredDbProvider {
             provider: Box::new(FixtureDbProvider),
             default_environment,
+        });
+    }
+    let Some(plugin) = config.db_plugin().map_err(DbProviderLoadError::from)? else {
+        return Err(DbProviderLoadError {
+            message: "db provider is not configured in .conduit/conduit.toml".to_string(),
         });
     };
 

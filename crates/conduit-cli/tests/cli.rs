@@ -214,6 +214,36 @@ fn db_config_rejects_fixture_fallback_when_project_config_has_no_db() {
 }
 
 #[test]
+fn provider_commands_require_explicit_config() {
+    let project = project_dir("provider_commands_require_config");
+
+    for (args, expected) in [
+        (
+            vec!["db", "resources", "checkout-service"],
+            "error: db provider is not configured in .conduit/conduit.toml\n",
+        ),
+        (
+            vec!["logs", "search", "fixture-service"],
+            "error: logs provider is not configured in .conduit/conduit.toml\n",
+        ),
+        (
+            vec!["openapi", "list", "--service", "catalog-service"],
+            "error: openapi provider is not configured in .conduit/conduit.toml\n",
+        ),
+    ] {
+        let output = conduit_command()
+            .args(args)
+            .current_dir(&project)
+            .output()
+            .expect("run conduit");
+
+        assert_eq!(output.status.code(), Some(1));
+        let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
+        assert!(stderr.contains(expected), "stderr was: {stderr}");
+    }
+}
+
+#[test]
 fn db_config_reports_missing_provider_plugin() {
     let project = project_dir("db_missing_provider_plugin");
     fs::create_dir_all(project.join(".conduit")).expect("create config dir");
@@ -697,9 +727,11 @@ fn logs_config_uses_ancestor_provider_when_nearest_config_has_no_logs() {
         [plugins.company]
         path = ".conduit/plugins/company.wasm"
 
+        [defaults]
+        environment = "staging"
+
         [logs]
         provider = "company"
-        default_environment = "staging"
         "#,
     )
     .expect("write workspace config");
@@ -2084,7 +2116,9 @@ fn conduit_command() -> Command {
 
 fn fixture_command() -> Command {
     let mut command = conduit_command();
-    command.current_dir(project_dir("fixture_command"));
+    let project = project_dir("fixture_command");
+    write_fixture_project_config(&project);
+    command.current_dir(project);
     command
 }
 
@@ -2204,6 +2238,24 @@ fn write_openapi_plugin_project_config(project: &std::path::Path) {
 
         [openapi]
         provider = "company"
+        "#,
+    )
+    .expect("write config");
+}
+
+fn write_fixture_project_config(project: &std::path::Path) {
+    fs::create_dir_all(project.join(".conduit")).expect("create config dir");
+    fs::write(
+        project.join(".conduit/conduit.toml"),
+        r#"
+        [openapi]
+        provider = "fixture"
+
+        [logs]
+        provider = "fixture"
+
+        [db]
+        provider = "fixture"
         "#,
     )
     .expect("write config");

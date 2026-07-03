@@ -21,40 +21,35 @@ pub(crate) fn configured_log_provider() -> Result<ConfiguredLogProvider, LogProv
         .transpose()
         .map_err(LogProviderLoadError::from)?
         .flatten();
-    let default_environment = logs
+    let default_environment = search
+        .config
         .as_ref()
-        .and_then(|logs| logs.default_environment.clone());
+        .and_then(|config| config.defaults().environment);
     let default_since = logs
         .as_ref()
         .and_then(|logs| logs.default_since.clone())
         .unwrap_or_else(|| DEFAULT_LOG_SINCE.to_string());
 
     let Some(config) = &search.config else {
-        if search.found_any_config {
-            return Err(LogProviderLoadError {
-                message: "logs provider is not configured in .conduit/conduit.toml".to_string(),
-            });
-        }
-        return Ok(ConfiguredLogProvider {
-            provider: Box::new(FixtureLogProvider),
-            default_environment,
-            default_since,
-        });
-    };
-    if logs
-        .as_ref()
-        .and_then(|logs| logs.provider.as_deref())
-        .is_none()
-    {
         return Err(LogProviderLoadError {
             message: "logs provider is not configured in .conduit/conduit.toml".to_string(),
         });
-    }
-    let Some(plugin) = config.logs_plugin().map_err(LogProviderLoadError::from)? else {
+    };
+    let Some(provider_name) = logs.as_ref().and_then(|logs| logs.provider.as_deref()) else {
+        return Err(LogProviderLoadError {
+            message: "logs provider is not configured in .conduit/conduit.toml".to_string(),
+        });
+    };
+    if provider_name == "fixture" {
         return Ok(ConfiguredLogProvider {
             provider: Box::new(FixtureLogProvider),
             default_environment,
             default_since,
+        });
+    }
+    let Some(plugin) = config.logs_plugin().map_err(LogProviderLoadError::from)? else {
+        return Err(LogProviderLoadError {
+            message: "logs provider is not configured in .conduit/conduit.toml".to_string(),
         });
     };
 

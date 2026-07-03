@@ -53,8 +53,8 @@ impl ConduitConfig {
     ) -> Result<ConfigSearch, ConfigError> {
         // Provider-specific commands may be invoked inside repos with their own
         // partial config. Keep walking until the relevant section is found, but
-        // remember whether any config existed so commands can avoid misleading
-        // fixture fallbacks in configured workspaces.
+        // remember whether any config existed so commands can render a precise
+        // missing-provider error.
         let mut found_any_config = false;
         if let Some(config) = Self::load_from_dir(".")? {
             found_any_config = true;
@@ -94,6 +94,9 @@ impl ConduitConfig {
         let Some(provider) = &openapi.provider else {
             return Ok(None);
         };
+        if provider == "fixture" {
+            return Ok(None);
+        }
         let plugin = self.file.plugins.get(provider).ok_or_else(|| ConfigError {
             message: format!("openapi provider `{provider}` is not configured as a plugin"),
         })?;
@@ -103,6 +106,12 @@ impl ConduitConfig {
             path: resolve_project_path("plugin", &self.project_root, &plugin.path)?,
             capabilities: plugin.capabilities.resolve(&self.project_root)?,
         }))
+    }
+
+    pub(crate) fn openapi(&self) -> Option<ConfiguredOpenApi> {
+        self.file.openapi.as_ref().map(|openapi| ConfiguredOpenApi {
+            provider: openapi.provider.clone(),
+        })
     }
 
     pub(crate) fn logs_plugin(&self) -> Result<Option<ConfiguredPlugin>, ConfigError> {
@@ -133,7 +142,6 @@ impl ConduitConfig {
 
         Ok(Some(ConfiguredLogs {
             provider: logs.provider.clone(),
-            default_environment: logs.default_environment.clone(),
             default_since: logs.default_since.clone(),
         }))
     }
@@ -166,8 +174,17 @@ impl ConduitConfig {
 
         Ok(Some(ConfiguredDb {
             provider: db.provider.clone(),
-            default_environment: db.default_environment.clone(),
         }))
+    }
+
+    pub(crate) fn defaults(&self) -> ConfiguredDefaults {
+        ConfiguredDefaults {
+            environment: self
+                .file
+                .defaults
+                .as_ref()
+                .and_then(|defaults| defaults.environment.clone()),
+        }
     }
 
     /// Returns a configured Gradle test profile by name, when present.
@@ -207,16 +224,24 @@ pub(crate) struct ConfiguredPlugin {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ConfiguredOpenApi {
+    pub(crate) provider: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ConfiguredLogs {
     pub(crate) provider: Option<String>,
-    pub(crate) default_environment: Option<String>,
     pub(crate) default_since: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ConfiguredDb {
     pub(crate) provider: Option<String>,
-    pub(crate) default_environment: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ConfiguredDefaults {
+    pub(crate) environment: Option<String>,
 }
 
 /// Result of searching ancestor configs for a command-specific section.
@@ -283,6 +308,7 @@ pub(crate) struct ConfigError {
 struct ConfigFile {
     #[serde(default)]
     plugins: BTreeMap<String, PluginConfig>,
+    defaults: Option<DefaultsConfig>,
     logs: Option<LogsConfig>,
     openapi: Option<OpenApiConfig>,
     db: Option<DbConfig>,
@@ -559,9 +585,14 @@ struct OpenApiConfig {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+struct DefaultsConfig {
+    environment: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct LogsConfig {
     provider: Option<String>,
-    default_environment: Option<String>,
     default_since: Option<String>,
 }
 
@@ -569,7 +600,6 @@ struct LogsConfig {
 #[serde(deny_unknown_fields)]
 struct DbConfig {
     provider: Option<String>,
-    default_environment: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -667,18 +697,21 @@ mod tests {
         let root = write_config(
             "logs-config",
             r#"
+            [defaults]
+            environment = "staging"
+
             [logs]
             provider = "fixture"
-            default_environment = "staging"
             default_since = "30m"
             "#,
         );
 
         let config = ConduitConfig::load_from_dir(&root).unwrap().unwrap();
+        let defaults = config.defaults();
         let logs = config.logs().unwrap().unwrap();
 
+        assert_eq!(defaults.environment.as_deref(), Some("staging"));
         assert_eq!(logs.provider.as_deref(), Some("fixture"));
-        assert_eq!(logs.default_environment.as_deref(), Some("staging"));
         assert_eq!(logs.default_since.as_deref(), Some("30m"));
         fs::remove_dir_all(root).unwrap();
     }
@@ -740,7 +773,6 @@ mod tests {
 
             [db]
             provider = "company"
-            default_environment = "test"
             "#,
         );
 
@@ -749,7 +781,6 @@ mod tests {
         let plugin = config.db_plugin().unwrap().unwrap();
 
         assert_eq!(db.provider.as_deref(), Some("company"));
-        assert_eq!(db.default_environment.as_deref(), Some("test"));
         assert_eq!(plugin.name, "company");
         assert_eq!(
             plugin.capabilities.postgres_connections,

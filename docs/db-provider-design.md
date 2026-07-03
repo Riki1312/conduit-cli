@@ -224,14 +224,15 @@ Core-level safety defaults:
 Provider or project policy should decide which environments are allowed:
 
 ```toml
+[defaults]
+environment = "test"
+
 [db]
 provider = "company-db"
-default_environment = "test"
-allowed_environments = ["test", "staging"]
 ```
 
-Unsupported environments should fail with compact, actionable errors. Write
-policy can be added when insert/update commands are introduced.
+Unsupported environments should fail with compact, actionable provider errors.
+Write policy can be added when insert/update commands are introduced.
 
 ## Provider Responsibilities
 
@@ -332,9 +333,11 @@ names = [
   "company-db/checkout/test/password",
 ]
 
+[defaults]
+environment = "staging"
+
 [db]
 provider = "company-db"
-default_environment = "test"
 ```
 
 `ssl_mode` defaults to `disable`; `require` can be paired with `ssl_root_cert`

@@ -218,9 +218,11 @@ names = [
 [openapi]
 provider = "company"
 
+[defaults]
+environment = "staging"
+
 [logs]
 provider = "company"
-default_environment = "staging"
 ```
 
 User config may provide local defaults and secrets, but project config should

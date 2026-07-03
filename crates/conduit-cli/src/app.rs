@@ -831,15 +831,18 @@ impl Command {
                 service,
                 environment,
             } => {
+                let configured =
+                    configured_openapi_provider().map_err(|error| CliError::data(error.message))?;
                 let request = OpenApiRequest {
                     service: service.clone(),
-                    environment: environment.clone(),
+                    environment: environment
+                        .clone()
+                        .or(configured.default_environment.clone()),
                     method: None,
                     path: None,
                 };
-                let provider =
-                    configured_openapi_provider().map_err(|error| CliError::data(error.message))?;
-                let list = provider
+                let list = configured
+                    .provider
                     .list(&request)
                     .map_err(|error| CliError::data(error.message))?;
 
@@ -856,15 +859,18 @@ impl Command {
                 method,
                 path,
             } => {
+                let configured =
+                    configured_openapi_provider().map_err(|error| CliError::data(error.message))?;
                 let request = OpenApiRequest {
                     service: service.clone(),
-                    environment: environment.clone(),
+                    environment: environment
+                        .clone()
+                        .or(configured.default_environment.clone()),
                     method: Some(method.clone()),
                     path: Some(path.clone()),
                 };
-                let provider =
-                    configured_openapi_provider().map_err(|error| CliError::data(error.message))?;
-                let operation = provider
+                let operation = configured
+                    .provider
                     .operation(&request)
                     .map_err(|error| CliError::data(error.message))?;
 
@@ -881,15 +887,18 @@ impl Command {
                 query,
                 method,
             } => {
-                let provider =
+                let configured =
                     configured_openapi_provider().map_err(|error| CliError::data(error.message))?;
                 let request = OpenApiRequest {
                     service: service.clone(),
-                    environment: environment.clone(),
+                    environment: environment
+                        .clone()
+                        .or(configured.default_environment.clone()),
                     method: None,
                     path: None,
                 };
-                let mut operations = provider
+                let mut operations = configured
+                    .provider
                     .list(&request)
                     .map_err(|error| CliError::data(error.message))?;
                 filter_openapi_operations(&mut operations.operations, query, method.as_deref());
