@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Conduit CLI</title>
+    <meta
+      name="description"
+      content="Conduit turns noisy developer tools into compact, structured facts for humans, agents, scripts, and IDEs."
+    >
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="topline">
+      <a href="https://github.com/Riki1312/conduit-cli">
+        ~ CONDUIT IS A DEVELOPER OPERATIONS CLI FOR AGENTS. VIEW SOURCE &gt;&gt;
+      </a>
+    </div>
+
+    <header class="masthead">
+      <div>
+        <a class="brand" href="./">CONDUIT CLI <span aria-hidden="true">█</span></a>
+      </div>
+      <nav aria-label="Primary navigation">
+        <a href="#install">[ INSTALL ]</a>
+        <a href="#primitives">[ PRIMITIVES ]</a>
+        <a href="#plugins">[ PLUGINS ]</a>
+        <a href="https://github.com/Riki1312/conduit-cli">[ GITHUB ]</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="headline">
+        <div class="stamp" aria-hidden="true">
+          <span>cd</span>
+        </div>
+
+        <div class="notice">~*~ Conduit CLI by the Conduit contributors ~*~</div>
+
+        <div class="intro-grid">
+          <div class="copy">
+            <h1 id="headline"># AGENT-FIRST DEVELOPER OPERATIONS</h1>
+
+            <p>
+              Conduit turns noisy developer tools into compact, structured
+              facts for humans, agents, scripts, and IDEs.
+            </p>
+
+            <p>
+              Modern engineering work crosses test runners, build tools, logs,
+              OpenAPI docs, Git worktrees, service catalogs, dashboards, and
+              databases. Conduit sits above those systems as a small,
+              product-neutral command layer.
+            </p>
+
+            <p>
+              No hidden orchestration. No company-specific workflow baked into
+              core. Just stable primitives that other tools can compose.
+            </p>
+
+            <pre><code>```
+$ conduit git status --json
+$ conduit logs errors api --since 30m
+$ conduit test rerun gradle --failed
+$ conduit plugin check --provider logs
+```</code></pre>
+          </div>
+
+          <div class="machine" aria-label="Conduit system diagram">
+            <div class="bubble bubble-a">INPUT SOURCES</div>
+            <pre><code>git status      ─────────┐
+logs/errors     ─────────┤
+test reports    ─────────┤
+openapi docs    ─────────┤
+db resources    ─────────┘
+                         │
+                         │
+          +==============================+
+          ||        CONDUIT CLI         ||
+          ||----------------------------||
+          || normalize                  ||
+          || validate                   ||
+          || render                     ||
+          +==============================+
+                         │
+                         │
+structured facts ────────┬── text
+                         ├── json
+                         └── jsonl</code></pre>
+            <div class="bubble bubble-b">STRUCTURED OUTPUT</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="primitives">
+        <h2>## PRIMITIVES</h2>
+        <p>
+          Conduit exposes factual building blocks. The core owns command
+          semantics, validation, output rendering, and durable state. Domain
+          behavior stays testable in library modules.
+        </p>
+
+        <div class="table-wrap">
+          <pre><code>+-----------+----------------------------------------------------------+
+| COMMAND   | WHAT IT NORMALIZES                                       |
+|-----------|----------------------------------------------------------|
+| git       | branch, cleanliness, ahead/behind, changed files         |
+| worktree  | local worktree discovery                                 |
+| test      | Gradle output, JUnit XML, failures, rerunnable state     |
+| logs      | filters, time windows, errors, watch/wait loops          |
+| openapi   | service operations, methods, paths, parameters           |
+| db        | constrained service-owned operational resources          |
+| plugin    | provider metadata, contracts, capability boundaries      |
++-----------+----------------------------------------------------------+</code></pre>
+        </div>
+
+        <dl class="primitive-list" aria-label="Primitive command summaries">
+          <div>
+            <dt>git</dt>
+            <dd>branch, cleanliness, ahead/behind, changed files</dd>
+          </div>
+          <div>
+            <dt>worktree</dt>
+            <dd>local worktree discovery</dd>
+          </div>
+          <div>
+            <dt>test</dt>
+            <dd>Gradle output, JUnit XML, failures, rerunnable state</dd>
+          </div>
+          <div>
+            <dt>logs</dt>
+            <dd>filters, time windows, errors, watch/wait loops</dd>
+          </div>
+          <div>
+            <dt>openapi</dt>
+            <dd>service operations, methods, paths, parameters</dd>
+          </div>
+          <div>
+            <dt>db</dt>
+            <dd>constrained service-owned operational resources</dd>
+          </div>
+          <div>
+            <dt>plugin</dt>
+            <dd>provider metadata, contracts, capability boundaries</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="section">
+        <h2>## OUTPUT MODEL</h2>
+        <p>
+          Human-readable output is a rendering of structured facts, not the
+          source of truth.
+        </p>
+
+        <ul>
+          <li>compact text by default;</li>
+          <li>JSON for bounded command results;</li>
+          <li>JSONL for streams and watches;</li>
+          <li>raw logs preserved under local Conduit state when needed;</li>
+          <li>deterministic fields for agents and scripts.</li>
+        </ul>
+
+        <pre><code>runner: gradle
+mode: unit
+termination: exit
+test_outcome: executed
+status: passed
+tests_ran: 1
+failures: 0</code></pre>
+      </section>
+
+      <section class="section" id="plugins">
+        <h2>## PLUGINS</h2>
+        <p>
+          Company systems belong behind explicit adapters. Conduit uses
+          WebAssembly components for provider plugins and grants capabilities
+          deliberately: HTTP hosts, file reads, user-scoped secrets, and other
+          narrow permissions.
+        </p>
+
+        <pre><code>+-------------------+
+| CONDUIT CLI       |
+|-------------------|
+| schemas           |
+| rendering         |
+| validation        |
++-------------------+
+          |
+          v
++-------------------+
+| PROVIDER CONTRACT |
+|-------------------|
+| typed request     |
+| typed response    |
+| capabilities      |
++-------------------+
+          |
+          v
++-------------------+
+| COMPANY SYSTEM    |
+|-------------------|
+| docs, logs, db    |
+| auth adapters     |
+| service maps      |
++-------------------+</code></pre>
+      </section>
+
+      <section class="section" id="install">
+        <h2>## INSTALL</h2>
+        <p>The repository pins Rust 1.94.0.</p>
+
+        <pre><code>cargo install --path crates/conduit-cli
+conduit about</code></pre>
+
+        <p>Run without installing:</p>
+
+        <pre><code>cargo run -p conduit-cli -- about
+conduit test run gradle --help</code></pre>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>–––</div>
+      <nav aria-label="Footer navigation">
+        <a href="https://github.com/Riki1312/conduit-cli">GitHub</a>
+        <span>|</span>
+        <a href="https://github.com/Riki1312/conduit-cli#readme">Docs</a>
+        <span>|</span>
+        <a href="https://github.com/Riki1312/conduit-cli/blob/main/docs/plugin-build-guide.md">Plugins</a>
+        <span>|</span>
+        <a href="https://github.com/Riki1312/conduit-cli/blob/main/SECURITY.md">Security</a>
+      </nav>
+      <div>© Conduit contributors. Structured facts for machines.</div>
+    </footer>
+  </body>
+</html>

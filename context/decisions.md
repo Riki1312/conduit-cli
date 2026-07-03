@@ -128,3 +128,16 @@ architecture, behavior, or workflow.
   be bounded. Insert and update can be added later after a PostgreSQL-backed
   example plugin validates the provider contract.
 - `evidence`: `docs/db-provider-design.md`.
+
+### 2026-07-03 19:59 - Static GitHub Pages Website
+
+- `decision`: Host the Conduit project website as a static site under `site/`
+  and deploy it with GitHub Pages through a Pages workflow.
+- `rationale`: The project needs a simple public-facing site, not a framework
+  app or generated documentation pipeline. A static site keeps maintenance low
+  and matches the compact, infrastructure-focused product style.
+- `impact`: Website changes should usually touch `site/` and
+  `.github/workflows/pages.yml`; repository settings must use GitHub Actions as
+  the Pages source.
+- `evidence`: `site/index.html`; `site/styles.css`;
+  `.github/workflows/pages.yml`.

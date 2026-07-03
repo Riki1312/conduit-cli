@@ -123,6 +123,20 @@
   names, hostnames, customer data, personal paths, credentials, and workflow
   details that only apply to one company.
 
+## Public Website
+
+- A simple static project website lives under `site/`.
+- The visual direction is austere, dark, monospace, terminal/manual-like, and
+  infrastructure-focused, inspired by `https://code.storage/` without copying
+  its exact page or 3D illustration approach.
+- The site is deployed through GitHub Pages using
+  `.github/workflows/pages.yml`, which uploads the static `site/` directory
+  without a build step.
+- Repository Pages settings are configured to use GitHub Actions as the Pages
+  source.
+- The site should stay product-neutral and avoid company-specific workflow
+  promises, private service names, credentials, or internal operational details.
+
 ## Near-Term Todo
 
 - Keep README and design docs concise enough for new users to understand the
