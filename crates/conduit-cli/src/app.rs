@@ -5,6 +5,10 @@
 //! path as the installed executable.
 
 use crate::config::{ConduitConfig, ConfiguredGradleTestProfile};
+use crate::db::{
+    DEFAULT_DB_READ_LIMIT, DbDescribeRequest, DbFilter, DbProvider, DbReadRequest,
+    DbResourceRequest, FixtureDbProvider, MAX_DB_READ_LIMIT,
+};
 use crate::git_status::GitStatusSummary;
 use crate::logs::{
     DEFAULT_LOG_LIMIT, DEFAULT_LOG_WATCH_LIMIT, LogAuthRequest, LogAuthStatus, LogDiagnostic,
@@ -110,6 +114,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum TopLevelCommand {
     About,
+    Db(DbCommand),
     Git(GitCommand),
     Help,
     Logs(Box<LogsCommand>),
@@ -118,6 +123,54 @@ enum TopLevelCommand {
     Stats,
     Test(TestCommand),
     Worktree(WorktreeCommand),
+}
+
+#[derive(Debug, Args)]
+struct DbCommand {
+    #[command(subcommand)]
+    command: DbSubcommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum DbSubcommand {
+    Resources(DbResourcesArgs),
+    Describe(DbDescribeArgs),
+    Read(DbReadArgs),
+}
+
+#[derive(Debug, Args)]
+struct DbResourcesArgs {
+    service: String,
+
+    #[arg(long = "env")]
+    environment: Option<String>,
+}
+
+#[derive(Debug, Args)]
+struct DbDescribeArgs {
+    service: String,
+    resource: String,
+
+    #[arg(long = "env")]
+    environment: Option<String>,
+}
+
+#[derive(Debug, Args)]
+struct DbReadArgs {
+    service: String,
+    resource: String,
+
+    #[arg(long = "env")]
+    environment: Option<String>,
+
+    #[arg(long)]
+    id: Option<String>,
+
+    #[arg(long = "filter")]
+    filters: Vec<String>,
+
+    #[arg(long, value_parser = parse_db_limit, default_value_t = DEFAULT_DB_READ_LIMIT)]
+    limit: usize,
 }
 
 #[derive(Debug, Args)]
@@ -472,6 +525,26 @@ enum Command {
     Help {
         format: OutputFormat,
     },
+    DbResources {
+        format: OutputFormat,
+        service: String,
+        environment: Option<String>,
+    },
+    DbDescribe {
+        format: OutputFormat,
+        service: String,
+        resource: String,
+        environment: Option<String>,
+    },
+    DbRead {
+        format: OutputFormat,
+        service: String,
+        resource: String,
+        environment: Option<String>,
+        id: Option<String>,
+        filters: Vec<DbFilter>,
+        limit: usize,
+    },
     LogsSearch {
         format: OutputFormat,
         service: String,
@@ -596,7 +669,7 @@ impl Command {
                     ("usage", "conduit <command> [args] [--json]"),
                     (
                         "commands",
-                        "about, git status, help, logs auth, logs errors, logs search, logs wait, logs watch, openapi list, openapi operation, openapi search, plugin check, stats, test failed, test failures, test last, test log, test rerun, test run gradle, worktree list",
+                        "about, db describe, db read, db resources, git status, help, logs auth, logs errors, logs search, logs wait, logs watch, openapi list, openapi operation, openapi search, plugin check, stats, test failed, test failures, test last, test log, test rerun, test run gradle, worktree list",
                     ),
                     ("default_output", "compact deterministic text"),
                 ]),
@@ -604,11 +677,78 @@ impl Command {
                     ("usage", "conduit <command> [args] [--json]"),
                     (
                         "commands",
-                        "about,git status,help,logs auth,logs errors,logs search,logs wait,logs watch,openapi list,openapi operation,openapi search,plugin check,stats,test failed,test failures,test last,test log,test rerun,test run gradle,worktree list",
+                        "about,db describe,db read,db resources,git status,help,logs auth,logs errors,logs search,logs wait,logs watch,openapi list,openapi operation,openapi search,plugin check,stats,test failed,test failures,test last,test log,test rerun,test run gradle,worktree list",
                     ),
                     ("default_output", "compact deterministic text"),
                 ]),
             })),
+            Command::DbResources {
+                format,
+                service,
+                environment,
+            } => {
+                let provider = FixtureDbProvider;
+                let resources = provider
+                    .resources(&DbResourceRequest {
+                        service: service.clone(),
+                        environment: environment.clone(),
+                    })
+                    .map_err(|error| CliError::data(error.message))?;
+
+                if format.is_json() {
+                    Ok(CommandOutcome::success(json(&resources)?))
+                } else {
+                    Ok(CommandOutcome::success(resources.render_text()))
+                }
+            }
+            Command::DbDescribe {
+                format,
+                service,
+                resource,
+                environment,
+            } => {
+                let provider = FixtureDbProvider;
+                let description = provider
+                    .describe(&DbDescribeRequest {
+                        service: service.clone(),
+                        resource: resource.clone(),
+                        environment: environment.clone(),
+                    })
+                    .map_err(|error| CliError::data(error.message))?;
+
+                if format.is_json() {
+                    Ok(CommandOutcome::success(json(&description)?))
+                } else {
+                    Ok(CommandOutcome::success(description.render_text()))
+                }
+            }
+            Command::DbRead {
+                format,
+                service,
+                resource,
+                environment,
+                id,
+                filters,
+                limit,
+            } => {
+                let provider = FixtureDbProvider;
+                let result = provider
+                    .read(&DbReadRequest {
+                        service: service.clone(),
+                        resource: resource.clone(),
+                        environment: environment.clone(),
+                        id: id.clone(),
+                        filters: filters.clone(),
+                        limit: *limit,
+                    })
+                    .map_err(|error| CliError::data(error.message))?;
+
+                if format.is_json() {
+                    Ok(CommandOutcome::success(json(&result)?))
+                } else {
+                    Ok(CommandOutcome::success(result.render_text()))
+                }
+            }
             Command::LogsSearch {
                 format,
                 service,
@@ -1364,6 +1504,7 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, CliError> {
         && !matches!(
             command,
             "about"
+                | "db"
                 | "git"
                 | "help"
                 | "logs"
@@ -1399,6 +1540,28 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Command, CliError> {
 
     Ok(match cli.command {
         None | Some(TopLevelCommand::About) => Command::About { format },
+        Some(TopLevelCommand::Db(db)) => match db.command {
+            DbSubcommand::Resources(args) => Command::DbResources {
+                format,
+                service: args.service,
+                environment: args.environment,
+            },
+            DbSubcommand::Describe(args) => Command::DbDescribe {
+                format,
+                service: args.service,
+                resource: args.resource,
+                environment: args.environment,
+            },
+            DbSubcommand::Read(args) => Command::DbRead {
+                format,
+                service: args.service,
+                resource: args.resource,
+                environment: args.environment,
+                id: args.id.clone(),
+                filters: parse_db_read_filters(args.id.as_ref(), args.filters)?,
+                limit: args.limit,
+            },
+        },
         Some(TopLevelCommand::Git(git)) => match git.command {
             GitSubcommand::Status(args) => Command::GitStatus {
                 format,
@@ -1552,6 +1715,51 @@ fn plugin_check_provider(value: &str) -> Result<PluginCheckProvider, CliError> {
             "unknown plugin provider `{value}`; expected `openapi` or `logs`"
         ))
     })
+}
+
+fn parse_db_read_filters(
+    id: Option<&String>,
+    filters: Vec<String>,
+) -> Result<Vec<DbFilter>, CliError> {
+    if id.is_some() && !filters.is_empty() {
+        return Err(CliError::usage(
+            "`db read --id` cannot be combined with `--filter`",
+        ));
+    }
+
+    filters
+        .into_iter()
+        .map(|filter| {
+            let (field, value) = filter.split_once('=').ok_or_else(|| {
+                CliError::usage(format!(
+                    "invalid db filter `{filter}`; expected `field=value`"
+                ))
+            })?;
+            if field.is_empty() || value.is_empty() {
+                return Err(CliError::usage(format!(
+                    "invalid db filter `{filter}`; expected `field=value`"
+                )));
+            }
+
+            Ok(DbFilter {
+                field: field.to_string(),
+                value: value.to_string(),
+            })
+        })
+        .collect()
+}
+
+fn parse_db_limit(value: &str) -> Result<usize, String> {
+    let limit = value
+        .parse::<usize>()
+        .map_err(|_| "limit must be a positive integer".to_string())?;
+    if limit == 0 {
+        return Err("limit must be greater than 0".to_string());
+    }
+    if limit > MAX_DB_READ_LIMIT {
+        return Err(format!("limit must be <= {MAX_DB_READ_LIMIT}"));
+    }
+    Ok(limit)
 }
 
 fn filter_openapi_operations(
@@ -2125,6 +2333,114 @@ mod tests {
         let error = parse(["missing".to_string()]).unwrap_err();
         assert_eq!(error.code, 2);
         assert_eq!(error.message, "unknown command `missing`");
+    }
+
+    #[test]
+    fn parses_db_resources() {
+        assert_eq!(
+            parse([
+                "db".to_string(),
+                "resources".to_string(),
+                "checkout-service".to_string(),
+                "--env".to_string(),
+                "test".to_string(),
+            ])
+            .unwrap(),
+            Command::DbResources {
+                format: OutputFormat::Text,
+                service: "checkout-service".to_string(),
+                environment: Some("test".to_string()),
+            }
+        );
+    }
+
+    #[test]
+    fn parses_db_describe() {
+        assert_eq!(
+            parse([
+                "db".to_string(),
+                "describe".to_string(),
+                "checkout-service".to_string(),
+                "payment_account".to_string(),
+                "--json".to_string(),
+            ])
+            .unwrap(),
+            Command::DbDescribe {
+                format: OutputFormat::Json,
+                service: "checkout-service".to_string(),
+                resource: "payment_account".to_string(),
+                environment: None,
+            }
+        );
+    }
+
+    #[test]
+    fn parses_db_read() {
+        assert_eq!(
+            parse([
+                "db".to_string(),
+                "read".to_string(),
+                "checkout-service".to_string(),
+                "payment_account".to_string(),
+                "--filter".to_string(),
+                "status=ACTIVE".to_string(),
+                "--limit".to_string(),
+                "10".to_string(),
+            ])
+            .unwrap(),
+            Command::DbRead {
+                format: OutputFormat::Text,
+                service: "checkout-service".to_string(),
+                resource: "payment_account".to_string(),
+                environment: None,
+                id: None,
+                filters: vec![DbFilter {
+                    field: "status".to_string(),
+                    value: "ACTIVE".to_string(),
+                }],
+                limit: 10,
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_db_filter() {
+        let error = parse([
+            "db".to_string(),
+            "read".to_string(),
+            "checkout-service".to_string(),
+            "payment_account".to_string(),
+            "--filter".to_string(),
+            "status".to_string(),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error.code, 2);
+        assert_eq!(
+            error.message,
+            "invalid db filter `status`; expected `field=value`"
+        );
+    }
+
+    #[test]
+    fn rejects_db_id_with_filter() {
+        let error = parse([
+            "db".to_string(),
+            "read".to_string(),
+            "checkout-service".to_string(),
+            "payment_account".to_string(),
+            "--id".to_string(),
+            "acc_123".to_string(),
+            "--filter".to_string(),
+            "status=ACTIVE".to_string(),
+        ])
+        .unwrap_err();
+
+        assert_eq!(error.code, 2);
+        assert_eq!(
+            error.message,
+            "`db read --id` cannot be combined with `--filter`"
+        );
     }
 
     #[test]

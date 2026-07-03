@@ -10,6 +10,7 @@
 mod app;
 
 mod config;
+mod db;
 mod git_status;
 mod logs;
 mod logs_provider;

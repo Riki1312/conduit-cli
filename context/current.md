@@ -29,7 +29,7 @@
 - The CLI supports compact text output by default and JSON output for bounded
   commands.
 - `about`, `help`, `git status`, `worktree list`, `stats`, `openapi`, `logs`,
-  `plugin check`, and `test` command families exist.
+  `db`, `plugin check`, and `test` command families exist.
 - `.conduit/conduit.toml` config is discovered from the current directory and
   then ancestor directories.
 - User-level stats are stored under `$CONDUIT_STATS_DIR`,
@@ -98,6 +98,20 @@
 - `logs auth --check` validates already stored provider auth material.
 - `docs/logs-provider-design.md` captures the provider contract direction and
   safety rules.
+
+## DB Provider Direction
+
+- `docs/db-provider-design.md` captures the proposed constrained operational
+  data interface.
+- The command shape should be `db resources`, `db describe`, `db read`,
+  and later `db insert` and `db update`.
+- Fixture-backed `db resources`, `db describe`, and `db read` are implemented.
+- `read` is the single read command; id lookups are modeled as exact reads.
+- The first implementation should be read-only: resources, describe, and read.
+- The first contract should avoid raw SQL, production access, delete, insert,
+  update, bulk update, schema changes, dry-run flows, and reason prompts.
+- Provider plugins should own auth, database routing, backend queries, resource
+  mapping, and write policy.
 
 ## Public Repository
 

@@ -142,6 +142,20 @@ Expose logs through a common search contract:
 - Return compact log events with structured fields.
 - Keep auth and backend details inside provider plugins.
 
+### Operational Data
+
+Expose constrained test and staging data access through a common contract:
+
+- List service-owned resources.
+- Describe resource fields and readable shape.
+- Read bounded records by id or simple equality filters.
+- Add insert/update later, after the read-only contract is proven.
+- Keep auth, database routing, backend query generation, and resource mapping
+  inside provider plugins.
+
+The contract should intentionally avoid raw SQL, delete, bulk update,
+production access, writes, and schema changes in the first implementation.
+
 ### Service Catalog And Docs
 
 Expose service ownership, repositories, docs, dashboards, environments, and

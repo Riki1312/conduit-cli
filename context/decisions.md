@@ -113,3 +113,18 @@ architecture, behavior, or workflow.
   UX with a fixture provider before adding backend-specific adapters outside
   core.
 - `evidence`: `docs/logs-provider-design.md`; `wit/conduit-plugin`.
+
+### 2026-06-16 00:00 - Constrained DB Provider Direction
+
+- `decision`: DB access should be modeled as a constrained operational data
+  provider that starts with `resources`, `describe`, and `read`, not raw SQL.
+- `rationale`: Humans and agents need a safe way to inspect and adjust
+  test/staging data, but generic database clients expose too much destructive
+  surface. A resource-oriented contract keeps Conduit product-neutral while
+  allowing plugins to handle auth, routing, schemas, and backend-specific
+  queries.
+- `impact`: Initial DB work should avoid production, insert, update, delete,
+  bulk update, schema changes, dry-run flows, and reason prompts. Reads should
+  be bounded. Insert and update can be added later after a PostgreSQL-backed
+  example plugin validates the provider contract.
+- `evidence`: `docs/db-provider-design.md`.

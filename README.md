@@ -47,6 +47,7 @@ conduit test run gradle --tests SomeTest
 conduit test failed
 conduit logs search fixture-service --date 2026-05-22 --limit 1
 conduit openapi operation --service catalog-service --method GET --path /items
+conduit db read checkout-service payment_account --id acc_123
 conduit git status
 conduit worktree list --root ..
 ```
@@ -210,6 +211,23 @@ paths = [".conduit/company-openapi"]
 provider = "company-openapi"
 ```
 
+## DB
+
+DB commands expose constrained operational data access through service-owned
+resources. The first slice is read-only and uses a built-in fixture provider.
+
+```bash
+conduit db resources checkout-service --env test
+conduit db describe checkout-service payment_account --env test
+conduit db read checkout-service payment_account --id acc_123 --env test
+conduit db read checkout-service payment_account --filter status=ACTIVE --limit 20
+conduit db read checkout-service payment_account --id acc_123 --json
+```
+
+The provider contract intentionally avoids raw SQL, production access, delete,
+bulk update, writes, and schema changes in the first implementation. A
+PostgreSQL-backed example plugin is the next target after the fixture provider.
+
 ## Git And Worktrees
 
 ```bash
@@ -275,6 +293,7 @@ Design and project docs:
 - [Plugin system direction](docs/plugin-system-direction.md)
 - [Building plugins](docs/plugin-build-guide.md)
 - [Logs provider design](docs/logs-provider-design.md)
+- [DB provider design](docs/db-provider-design.md)
 - [Test runner UX design](docs/test-runner-ux-design.md)
 - [Agent guidance](AGENTS.md)
 - [Context system](context/README.md)

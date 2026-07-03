@@ -70,6 +70,7 @@ The primary extension model should be provider interfaces:
 
 - `openapi-provider`
 - `logs-provider`
+- `db-provider`
 - `service-catalog-provider`
 - `docs-provider`
 - `ci-provider`

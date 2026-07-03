@@ -103,6 +103,100 @@ fn git_status_prints_json_repo_state() {
 }
 
 #[test]
+fn db_resources_prints_compact_resources() {
+    let output = fixture_command()
+        .args(["db", "resources", "checkout-service", "--env", "test"])
+        .output()
+        .expect("run conduit");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("provider: fixture-db\n"));
+    assert!(stdout.contains("service: checkout-service\n"));
+    assert!(stdout.contains("environment: test\n"));
+    assert!(stdout.contains("resources: 1\n"));
+    assert!(stdout.contains("resource: payment_account\n"));
+    assert!(!stdout.contains("description:"));
+}
+
+#[test]
+fn db_describe_prints_minimal_resource_shape() {
+    let output = fixture_command()
+        .args([
+            "db",
+            "describe",
+            "checkout-service",
+            "payment_account",
+            "--env",
+            "test",
+        ])
+        .output()
+        .expect("run conduit");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("provider: fixture-db\n"));
+    assert!(stdout.contains("resource: payment_account\n"));
+    assert!(stdout.contains("id_field: id\n"));
+    assert!(stdout.contains("field: currency\n"));
+    assert!(!stdout.contains("sensitive:"));
+    assert!(!stdout.contains("description:"));
+}
+
+#[test]
+fn db_read_prints_compact_records_by_id() {
+    let output = fixture_command()
+        .args([
+            "db",
+            "read",
+            "checkout-service",
+            "payment_account",
+            "--id",
+            "acc_123",
+            "--env",
+            "test",
+        ])
+        .output()
+        .expect("run conduit");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("status: ok\n"));
+    assert!(stdout.contains("matched: 1\nshown: 1\n"));
+    assert!(stdout.contains("record:\n"));
+    assert!(stdout.contains("  id: acc_123\n"));
+    assert!(stdout.contains("  status: ACTIVE\n"));
+    assert!(stdout.contains("  currency: EUR\n"));
+}
+
+#[test]
+fn db_read_prints_json_records_by_filter() {
+    let output = fixture_command()
+        .args([
+            "db",
+            "read",
+            "checkout-service",
+            "payment_account",
+            "--filter",
+            "status=DISABLED",
+            "--json",
+        ])
+        .output()
+        .expect("run conduit");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    let payload: serde_json::Value = serde_json::from_str(&stdout).expect("valid json");
+    assert_eq!(payload["provider"], "fixture-db");
+    assert_eq!(payload["matched"], 1);
+    assert_eq!(payload["records"][0]["id"], "acc_456");
+}
+
+#[test]
 fn openapi_operation_prints_compact_operation() {
     let output = fixture_command()
         .args([
