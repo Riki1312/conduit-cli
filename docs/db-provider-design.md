@@ -283,7 +283,7 @@ Resource description shape:
 ```text
 provider: string
 service: string
-resource: string
+resource-name: string
 id-field: string
 fields: list field-description
 ```
@@ -292,7 +292,7 @@ Field description shape:
 
 ```text
 name: string
-type: optional string
+data-type: optional string
 ```
 
 Read result shape:
@@ -301,12 +301,11 @@ Read result shape:
 status: ok | partial | auth-required | unavailable | invalid-request | error
 provider: string
 service: string
-resource: string
+resource-name: string
 environment: optional string
 matched: optional u64
 shown: u64
 records-json: list string
-diagnostics: list diagnostic
 ```
 
 `records-json` lets the provider preserve native field shapes without the core
@@ -315,36 +314,36 @@ parse these JSON strings for rendering and redaction.
 
 ## Capabilities
 
-The existing plugin capability model should be reused.
-
-Likely grants:
+The existing plugin capability model is reused. PostgreSQL-backed plugins use
+named connection grants, plus exact secret grants for credentials:
 
 ```toml
 [plugins.company-db]
 path = ".conduit/plugins/company-db.wasm"
 
-[plugins.company-db.capabilities.http]
-hosts = ["db-gateway.example.com"]
+[plugins.company-db.capabilities.postgres]
+connections = [
+  { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
+]
 
 [plugins.company-db.capabilities.secrets]
 names = [
-  "company-db/test/token",
-  "company-db/staging/token",
+  "company-db/checkout/test/username",
+  "company-db/checkout/test/password",
 ]
 
 [db]
 provider = "company-db"
 default_environment = "test"
-allowed_environments = ["test", "staging"]
 ```
 
-The first example plugin should be PostgreSQL-backed so the provider contract
-is proven against a real relational database. That should not mean giving
-plugins unrestricted socket or process access. Use either a narrow
-PostgreSQL-oriented host capability or a controlled HTTP gateway; the choice
-should be finalized before implementing the plugin. For company deployments,
-a gateway can centralize auth, audit, network policy, and environment routing
-outside the Conduit process.
+The PostgreSQL capability is intentionally narrow. Plugins request an exact
+connection name, pass credentials read through `secret-store-v1`, and submit a
+single read-only query. Conduit core resolves the host/database from project
+config, enforces the connection grant, wraps rows as JSON, and rejects obvious
+non-read statements. For company deployments, a future gateway can centralize
+auth, audit, network policy, and environment routing outside the Conduit
+process without changing the DB provider command shape.
 
 ## Exit Semantics
 
@@ -363,8 +362,9 @@ outside the Conduit process.
 4. Add compact text and JSON renderers.
 5. Add config loading for `[db]` provider selection and environment defaults.
 6. Add WIT contract and Wasmtime provider loading for `db-provider-v1`.
-7. Build a PostgreSQL-backed example plugin that implements read-only access.
-8. Use the PostgreSQL plugin to validate whether the provider contract needs
+7. Add a narrow PostgreSQL host capability for read-only plugin queries.
+8. Build a PostgreSQL-backed example plugin that implements read-only access.
+9. Use the PostgreSQL plugin to validate whether the provider contract needs
    changes before adding writes.
 
 Insert and update should be documented and implemented as a later slice.

@@ -197,6 +197,48 @@ fn db_read_prints_json_records_by_filter() {
 }
 
 #[test]
+fn db_config_rejects_fixture_fallback_when_project_config_has_no_db() {
+    let project = project_dir("db_no_provider_no_fixture_fallback");
+    write_gradle_profile_project_config(&project);
+
+    let output = conduit_command()
+        .args(["db", "resources", "checkout-service"])
+        .current_dir(&project)
+        .output()
+        .expect("run conduit");
+
+    assert_eq!(output.status.code(), Some(1));
+
+    let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
+    assert!(stderr.contains("error: db provider is not configured in .conduit/conduit.toml\n"));
+}
+
+#[test]
+fn db_config_reports_missing_provider_plugin() {
+    let project = project_dir("db_missing_provider_plugin");
+    fs::create_dir_all(project.join(".conduit")).expect("create config dir");
+    fs::write(
+        project.join(".conduit/conduit.toml"),
+        r#"
+        [db]
+        provider = "company"
+        "#,
+    )
+    .expect("write config");
+
+    let output = conduit_command()
+        .args(["db", "resources", "checkout-service"])
+        .current_dir(&project)
+        .output()
+        .expect("run conduit");
+
+    assert_eq!(output.status.code(), Some(1));
+
+    let stderr = String::from_utf8(output.stderr).expect("stderr is utf8");
+    assert!(stderr.contains("error: db provider `company` is not configured as a plugin\n"));
+}
+
+#[test]
 fn openapi_operation_prints_compact_operation() {
     let output = fixture_command()
         .args([

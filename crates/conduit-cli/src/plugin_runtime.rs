@@ -1,4 +1,8 @@
 use crate::config::PluginCapabilities;
+use crate::db::{
+    DbDescribeRequest, DbError, DbErrorKind, DbField, DbFilter, DbProvider, DbReadRequest,
+    DbReadResult, DbResource, DbResourceDescription, DbResourceList, DbResourceRequest, DbStatus,
+};
 use crate::logs::{
     LogAuthRequest, LogAuthResult, LogAuthStatus, LogDiagnostic, LogError, LogErrorKind, LogEvent,
     LogProvider, LogQuery, LogSearchResult, LogStatus, LogTimeRange,
@@ -7,6 +11,16 @@ use crate::openapi::{
     OpenApiError, OpenApiErrorKind, OpenApiOperation, OpenApiOperationList, OpenApiParameter,
     OpenApiParameterLocation, OpenApiProvider, OpenApiRequest,
 };
+use crate::plugin_bindings::db::DbProvider as ComponentDbProvider;
+use crate::plugin_bindings::db::exports::conduit::plugin::db_provider_v1::{
+    DbResource as PluginDbResource, DescribeRequest as PluginDbDescribeRequest,
+    FieldDescription as PluginDbFieldDescription, FieldFilter as PluginDbFieldFilter,
+    ProviderError as PluginDbProviderError, ProviderErrorKind as PluginDbProviderErrorKind,
+    ReadRequest as PluginDbReadRequest, ReadResult as PluginDbReadResult,
+    ReadStatus as PluginDbReadStatus, ResourceDescription as PluginDbResourceDescription,
+    ResourceList as PluginDbResourceList, ResourceRequest as PluginDbResourceRequest,
+};
+use crate::plugin_bindings::db::exports::conduit::plugin::metadata::PluginMetadata as DbPluginMetadata;
 use crate::plugin_bindings::logs::LogsProvider;
 use crate::plugin_bindings::logs::exports::conduit::plugin::logs_provider_v1::{
     AuthRequest as PluginLogAuthRequest, AuthResult as PluginLogAuthResult,
@@ -85,6 +99,26 @@ impl PluginRuntime {
 
         Ok(WasmtimeLogsProvider {
             inner: Mutex::new(WasmtimeLogsProviderState { store, bindings }),
+        })
+    }
+
+    pub(crate) fn instantiate_db_provider_with_capabilities(
+        &self,
+        path: impl AsRef<Path>,
+        capabilities: PluginCapabilities,
+    ) -> Result<WasmtimeDbProvider, PluginRuntimeError> {
+        let path = path.as_ref();
+        let component = Component::from_file(&self.engine, path)
+            .map_err(|source| PluginRuntimeError::component(path.to_path_buf(), source))?;
+        let mut linker = Linker::new(&self.engine);
+        ComponentDbProvider::add_to_linker::<_, HasSelf<_>>(&mut linker, |state| state)
+            .map_err(|source| PluginRuntimeError::linker(path.to_path_buf(), source))?;
+        let mut store = Store::new(&self.engine, PluginHostState::new(capabilities));
+        let bindings = ComponentDbProvider::instantiate(&mut store, &component, &linker)
+            .map_err(|source| PluginRuntimeError::instantiate(path.to_path_buf(), source))?;
+
+        Ok(WasmtimeDbProvider {
+            inner: Mutex::new(WasmtimeDbProviderState { store, bindings }),
         })
     }
 }
@@ -231,6 +265,76 @@ impl LogProvider for WasmtimeLogsProvider {
 struct WasmtimeLogsProviderState {
     store: Store<PluginHostState>,
     bindings: LogsProvider,
+}
+
+pub(crate) struct WasmtimeDbProvider {
+    inner: Mutex<WasmtimeDbProviderState>,
+}
+
+impl WasmtimeDbProvider {
+    pub(crate) fn metadata(&self) -> Result<DbPluginMetadata, DbError> {
+        let mut inner = self.lock()?;
+        let WasmtimeDbProviderState { store, bindings } = &mut *inner;
+        bindings
+            .conduit_plugin_metadata()
+            .call_metadata(store)
+            .map_err(runtime_db_error)
+    }
+
+    fn lock(&self) -> Result<std::sync::MutexGuard<'_, WasmtimeDbProviderState>, DbError> {
+        self.inner.lock().map_err(|_| {
+            DbError::new(
+                DbErrorKind::Internal,
+                "db plugin provider state is unavailable",
+            )
+        })
+    }
+}
+
+impl DbProvider for WasmtimeDbProvider {
+    fn resources(&self, request: &DbResourceRequest) -> Result<DbResourceList, DbError> {
+        let mut inner = self.lock()?;
+        let plugin_request = plugin_db_resource_request(request);
+        let WasmtimeDbProviderState { store, bindings } = &mut *inner;
+        let result = bindings
+            .conduit_plugin_db_provider_v1()
+            .call_resources(store, &plugin_request)
+            .map_err(runtime_db_error)?
+            .map_err(provider_db_error)?;
+
+        Ok(db_resource_list(result))
+    }
+
+    fn describe(&self, request: &DbDescribeRequest) -> Result<DbResourceDescription, DbError> {
+        let mut inner = self.lock()?;
+        let plugin_request = plugin_db_describe_request(request);
+        let WasmtimeDbProviderState { store, bindings } = &mut *inner;
+        let result = bindings
+            .conduit_plugin_db_provider_v1()
+            .call_describe(store, &plugin_request)
+            .map_err(runtime_db_error)?
+            .map_err(provider_db_error)?;
+
+        Ok(db_resource_description(result))
+    }
+
+    fn read(&self, request: &DbReadRequest) -> Result<DbReadResult, DbError> {
+        let mut inner = self.lock()?;
+        let plugin_request = plugin_db_read_request(request)?;
+        let WasmtimeDbProviderState { store, bindings } = &mut *inner;
+        let result = bindings
+            .conduit_plugin_db_provider_v1()
+            .call_read(store, &plugin_request)
+            .map_err(runtime_db_error)?
+            .map_err(provider_db_error)?;
+
+        db_read_result(result)
+    }
+}
+
+struct WasmtimeDbProviderState {
+    store: Store<PluginHostState>,
+    bindings: ComponentDbProvider,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -511,6 +615,154 @@ fn runtime_log_error(error: wasmtime::Error) -> LogError {
     LogError::new(
         LogErrorKind::Internal,
         format!("logs plugin runtime error: {error}"),
+    )
+}
+
+fn plugin_db_resource_request(request: &DbResourceRequest) -> PluginDbResourceRequest {
+    PluginDbResourceRequest {
+        service: request.service.clone(),
+        environment: request.environment.clone(),
+    }
+}
+
+fn plugin_db_describe_request(request: &DbDescribeRequest) -> PluginDbDescribeRequest {
+    PluginDbDescribeRequest {
+        service: request.service.clone(),
+        resource_name: request.resource.clone(),
+        environment: request.environment.clone(),
+    }
+}
+
+fn plugin_db_read_request(request: &DbReadRequest) -> Result<PluginDbReadRequest, DbError> {
+    let limit = u32::try_from(request.limit).map_err(|_| {
+        DbError::new(
+            DbErrorKind::InvalidRequest,
+            "db read limit is too large for plugin provider request",
+        )
+    })?;
+
+    Ok(PluginDbReadRequest {
+        service: request.service.clone(),
+        resource_name: request.resource.clone(),
+        environment: request.environment.clone(),
+        id: request.id.clone(),
+        filters: request.filters.iter().map(plugin_db_filter).collect(),
+        limit,
+    })
+}
+
+fn plugin_db_filter(filter: &DbFilter) -> PluginDbFieldFilter {
+    PluginDbFieldFilter {
+        field: filter.field.clone(),
+        value: filter.value.clone(),
+    }
+}
+
+fn db_resource_list(list: PluginDbResourceList) -> DbResourceList {
+    DbResourceList {
+        provider: list.provider,
+        service: list.service,
+        environment: list.environment,
+        resources: list.resources.into_iter().map(db_resource).collect(),
+    }
+}
+
+fn db_resource(resource: PluginDbResource) -> DbResource {
+    DbResource {
+        name: resource.name,
+    }
+}
+
+fn db_resource_description(description: PluginDbResourceDescription) -> DbResourceDescription {
+    DbResourceDescription {
+        provider: description.provider,
+        service: description.service,
+        resource: description.resource_name,
+        environment: description.environment,
+        id_field: description.id_field,
+        fields: description.fields.into_iter().map(db_field).collect(),
+    }
+}
+
+fn db_field(field: PluginDbFieldDescription) -> DbField {
+    DbField {
+        name: field.name,
+        kind: field.data_type,
+    }
+}
+
+fn db_read_result(result: PluginDbReadResult) -> Result<DbReadResult, DbError> {
+    let records = result
+        .records_json
+        .into_iter()
+        .map(|record| {
+            serde_json::from_str(&record).map_err(|error| {
+                DbError::new(
+                    DbErrorKind::Internal,
+                    format!("db plugin returned invalid record JSON: {error}"),
+                )
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let shown = usize::try_from(result.shown).map_err(|_| {
+        DbError::new(
+            DbErrorKind::Internal,
+            "db plugin returned a shown count that is too large",
+        )
+    })?;
+    let matched = result
+        .matched
+        .map(usize::try_from)
+        .transpose()
+        .map_err(|_| {
+            DbError::new(
+                DbErrorKind::Internal,
+                "db plugin returned a matched count that is too large",
+            )
+        })?
+        .unwrap_or(records.len());
+
+    Ok(DbReadResult {
+        status: db_status(result.status),
+        provider: result.provider,
+        service: result.service,
+        resource: result.resource_name,
+        environment: result.environment,
+        matched,
+        shown,
+        records,
+    })
+}
+
+fn db_status(status: PluginDbReadStatus) -> DbStatus {
+    match status {
+        PluginDbReadStatus::Ok => DbStatus::Ok,
+        PluginDbReadStatus::Partial => DbStatus::Partial,
+        PluginDbReadStatus::AuthRequired => DbStatus::AuthRequired,
+        PluginDbReadStatus::Unavailable => DbStatus::Unavailable,
+        PluginDbReadStatus::InvalidRequest => DbStatus::InvalidRequest,
+        PluginDbReadStatus::Error => DbStatus::Error,
+    }
+}
+
+fn provider_db_error(error: PluginDbProviderError) -> DbError {
+    DbError::new(
+        match error.kind {
+            PluginDbProviderErrorKind::AuthRequired => DbErrorKind::AuthRequired,
+            PluginDbProviderErrorKind::Internal => DbErrorKind::Internal,
+            PluginDbProviderErrorKind::InvalidRequest => DbErrorKind::InvalidRequest,
+            PluginDbProviderErrorKind::PermissionDenied => DbErrorKind::PermissionDenied,
+            PluginDbProviderErrorKind::Unavailable => DbErrorKind::Unavailable,
+            PluginDbProviderErrorKind::Unsupported => DbErrorKind::Unsupported,
+        },
+        error.message,
+    )
+}
+
+fn runtime_db_error(error: wasmtime::Error) -> DbError {
+    DbError::new(
+        DbErrorKind::Internal,
+        format!("db plugin runtime error: {error}"),
     )
 }
 

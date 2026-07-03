@@ -1,4 +1,5 @@
 use crate::config::{ConduitConfig, PluginCapabilities};
+use crate::db_provider::validate_db_plugin_metadata;
 use crate::logs_provider::validate_logs_plugin_metadata;
 use crate::openapi_provider::validate_openapi_plugin_metadata;
 use crate::plugin_runtime::PluginRuntime;
@@ -37,6 +38,7 @@ impl PluginCheckSummary {
         match provider {
             PluginCheckProvider::OpenApi => Self::from_openapi_plugin(path, capabilities),
             PluginCheckProvider::Logs => Self::from_logs_plugin(path, capabilities),
+            PluginCheckProvider::Db => Self::from_db_plugin(path, capabilities),
         }
     }
 
@@ -100,6 +102,36 @@ impl PluginCheckSummary {
         })
     }
 
+    fn from_db_plugin(
+        path: &Path,
+        capabilities: PluginCapabilities,
+    ) -> Result<Self, PluginCheckError> {
+        let runtime = PluginRuntime::new().map_err(|error| PluginCheckError {
+            message: error.message,
+        })?;
+        let provider = runtime
+            .instantiate_db_provider_with_capabilities(path, capabilities)
+            .map_err(|error| PluginCheckError {
+                message: error.message,
+            })?;
+        let metadata = provider.metadata().map_err(|error| PluginCheckError {
+            message: error.message,
+        })?;
+
+        validate_db_plugin_metadata(&metadata).map_err(|error| PluginCheckError {
+            message: error.message,
+        })?;
+
+        Ok(Self {
+            status: "ok".to_string(),
+            path: path.to_string_lossy().to_string(),
+            id: metadata.id,
+            version: metadata.version,
+            protocol_version: metadata.protocol_version,
+            providers: metadata.providers,
+        })
+    }
+
     pub(crate) fn render_text(&self) -> String {
         let mut lines = vec![
             format!("status: {}", self.status),
@@ -124,6 +156,7 @@ impl PluginCheckSummary {
 pub(crate) enum PluginCheckProvider {
     OpenApi,
     Logs,
+    Db,
 }
 
 impl PluginCheckProvider {
@@ -131,6 +164,7 @@ impl PluginCheckProvider {
         match name {
             "openapi" => Some(Self::OpenApi),
             "logs" => Some(Self::Logs),
+            "db" => Some(Self::Db),
             _ => None,
         }
     }
@@ -150,6 +184,7 @@ pub(crate) fn check_configured_plugin(
     match provider {
         PluginCheckProvider::OpenApi => check_configured_openapi_plugin(),
         PluginCheckProvider::Logs => check_configured_logs_plugin(),
+        PluginCheckProvider::Db => check_configured_db_plugin(),
     }
 }
 
@@ -200,6 +235,30 @@ fn check_configured_logs_plugin() -> Result<PluginCheckSummary, PluginCheckError
     };
 
     PluginCheckSummary::from_logs_plugin(&plugin.path, plugin.capabilities)
+}
+
+fn check_configured_db_plugin() -> Result<PluginCheckSummary, PluginCheckError> {
+    let search = ConduitConfig::load_current_dir_for_db().map_err(|error| PluginCheckError {
+        message: error.message,
+    })?;
+    let Some(config) = search.config else {
+        let message = if search.found_any_config {
+            "db provider is not configured in .conduit/conduit.toml"
+        } else {
+            "db provider is not configured; expected .conduit/conduit.toml"
+        };
+        return Err(PluginCheckError::new(message));
+    };
+    let Some(plugin) = config.db_plugin().map_err(|error| PluginCheckError {
+        message: error.message,
+    })?
+    else {
+        return Err(PluginCheckError::new(
+            "db provider is not configured as a plugin in .conduit/conduit.toml",
+        ));
+    };
+
+    PluginCheckSummary::from_db_plugin(&plugin.path, plugin.capabilities)
 }
 
 #[cfg(test)]

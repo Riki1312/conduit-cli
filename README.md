@@ -214,7 +214,8 @@ provider = "company-openapi"
 ## DB
 
 DB commands expose constrained operational data access through service-owned
-resources. The first slice is read-only and uses a built-in fixture provider.
+resources. The first slice is read-only and uses a built-in fixture provider
+unless a project config selects a DB plugin.
 
 ```bash
 conduit db resources checkout-service --env test
@@ -224,9 +225,32 @@ conduit db read checkout-service payment_account --filter status=ACTIVE --limit 
 conduit db read checkout-service payment_account --id acc_123 --json
 ```
 
-The provider contract intentionally avoids raw SQL, production access, delete,
-bulk update, writes, and schema changes in the first implementation. A
-PostgreSQL-backed example plugin is the next target after the fixture provider.
+The provider contract intentionally avoids raw SQL, delete, bulk update,
+writes, and schema changes in the first implementation. DB plugins can use
+exact secret grants and named PostgreSQL connections configured by the project:
+
+```toml
+[plugins.company-db]
+path = ".conduit/plugins/company-db.wasm"
+
+[plugins.company-db.capabilities.postgres]
+connections = [
+  { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
+]
+
+[plugins.company-db.capabilities.secrets]
+names = [
+  "company-db/checkout/test/username",
+  "company-db/checkout/test/password",
+]
+
+[db]
+provider = "company-db"
+default_environment = "test"
+```
+
+The PostgreSQL host capability is read-only and exact-connection based; plugins
+do not receive arbitrary socket or process access.
 
 ## Git And Worktrees
 
@@ -264,6 +288,8 @@ conduit plugin check --path .conduit/plugins/company-openapi.wasm
 conduit plugin check --provider openapi
 conduit plugin check --path .conduit/plugins/company-logs.wasm --provider logs
 conduit plugin check --provider logs
+conduit plugin check --path .conduit/plugins/company-db.wasm --provider db
+conduit plugin check --provider db
 conduit plugin check --path .conduit/plugins/company-openapi.wasm --json
 ```
 

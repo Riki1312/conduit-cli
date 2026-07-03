@@ -1,0 +1,136 @@
+package conduit:plugin;
+
+interface postgres-query-v1 {
+  variant postgres-error-kind {
+    invalid-request,
+    permission-denied,
+    unavailable,
+    internal,
+  }
+
+  record postgres-connection {
+    /// Exact connection name granted in project config.
+    name: string,
+    username: string,
+    password: string,
+    connect-timeout-ms: option<u32>,
+  }
+
+  record postgres-query {
+    connection: postgres-connection,
+    sql: string,
+    params: list<string>,
+    timeout-ms: option<u32>,
+  }
+
+  record postgres-error {
+    kind: postgres-error-kind,
+    message: string,
+  }
+
+  record postgres-query-result {
+    rows-json: list<string>,
+  }
+
+  query: func(request: postgres-query) -> result<postgres-query-result, postgres-error>;
+}
+
+interface db-provider-v1 {
+  record resource-request {
+    service: string,
+    environment: option<string>,
+  }
+
+  record describe-request {
+    service: string,
+    resource-name: string,
+    environment: option<string>,
+  }
+
+  record field-filter {
+    field: string,
+    value: string,
+  }
+
+  record read-request {
+    service: string,
+    resource-name: string,
+    environment: option<string>,
+    id: option<string>,
+    filters: list<field-filter>,
+    limit: u32,
+  }
+
+  record db-resource {
+    name: string,
+  }
+
+  record resource-list {
+    provider: string,
+    service: string,
+    environment: option<string>,
+    resources: list<db-resource>,
+  }
+
+  record field-description {
+    name: string,
+    data-type: option<string>,
+  }
+
+  record resource-description {
+    provider: string,
+    service: string,
+    resource-name: string,
+    environment: option<string>,
+    id-field: string,
+    fields: list<field-description>,
+  }
+
+  variant read-status {
+    ok,
+    partial,
+    auth-required,
+    unavailable,
+    invalid-request,
+    error,
+  }
+
+  record read-result {
+    status: read-status,
+    provider: string,
+    service: string,
+    resource-name: string,
+    environment: option<string>,
+    matched: option<u64>,
+    shown: u64,
+    records-json: list<string>,
+  }
+
+  variant provider-error-kind {
+    auth-required,
+    invalid-request,
+    permission-denied,
+    unavailable,
+    unsupported,
+    internal,
+  }
+
+  record provider-error {
+    kind: provider-error-kind,
+    message: string,
+    details: option<string>,
+    source: option<string>,
+  }
+
+  resources: func(request: resource-request) -> result<resource-list, provider-error>;
+  describe: func(request: describe-request) -> result<resource-description, provider-error>;
+  read: func(request: read-request) -> result<read-result, provider-error>;
+}
+
+world db-provider {
+  import secret-store-v1;
+  import postgres-query-v1;
+
+  export metadata;
+  export db-provider-v1;
+}

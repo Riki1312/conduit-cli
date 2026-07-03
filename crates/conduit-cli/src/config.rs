@@ -24,6 +24,10 @@ impl ConduitConfig {
         Self::search_current_dir_configs(|config| config.file.openapi.is_some())
     }
 
+    pub(crate) fn load_current_dir_for_db() -> Result<ConfigSearch, ConfigError> {
+        Self::search_current_dir_configs(|config| config.file.db.is_some())
+    }
+
     pub(crate) fn load_from_dir(root: impl AsRef<Path>) -> Result<Option<Self>, ConfigError> {
         let root = root.as_ref();
         let path = root.join(PROJECT_CONFIG_PATH);
@@ -134,6 +138,38 @@ impl ConduitConfig {
         }))
     }
 
+    pub(crate) fn db_plugin(&self) -> Result<Option<ConfiguredPlugin>, ConfigError> {
+        let Some(db) = &self.file.db else {
+            return Ok(None);
+        };
+        let Some(provider) = &db.provider else {
+            return Ok(None);
+        };
+        if provider == "fixture" {
+            return Ok(None);
+        }
+        let plugin = self.file.plugins.get(provider).ok_or_else(|| ConfigError {
+            message: format!("db provider `{provider}` is not configured as a plugin"),
+        })?;
+
+        Ok(Some(ConfiguredPlugin {
+            name: provider.clone(),
+            path: resolve_project_path("plugin", &self.project_root, &plugin.path)?,
+            capabilities: plugin.capabilities.resolve(&self.project_root)?,
+        }))
+    }
+
+    pub(crate) fn db(&self) -> Result<Option<ConfiguredDb>, ConfigError> {
+        let Some(db) = &self.file.db else {
+            return Ok(None);
+        };
+
+        Ok(Some(ConfiguredDb {
+            provider: db.provider.clone(),
+            default_environment: db.default_environment.clone(),
+        }))
+    }
+
     /// Returns a configured Gradle test profile by name, when present.
     pub(crate) fn gradle_test_profile(
         &self,
@@ -177,6 +213,12 @@ pub(crate) struct ConfiguredLogs {
     pub(crate) default_since: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ConfiguredDb {
+    pub(crate) provider: Option<String>,
+    pub(crate) default_environment: Option<String>,
+}
+
 /// Result of searching ancestor configs for a command-specific section.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ConfigSearch {
@@ -210,6 +252,15 @@ pub(crate) struct PluginCapabilities {
     pub(crate) file_read_base: Option<PathBuf>,
     pub(crate) file_read_paths: Vec<PathBuf>,
     pub(crate) secret_names: Vec<String>,
+    pub(crate) postgres_connections: Vec<PostgresConnectionCapability>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PostgresConnectionCapability {
+    pub(crate) name: String,
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) database: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -224,6 +275,7 @@ struct ConfigFile {
     plugins: BTreeMap<String, PluginConfig>,
     logs: Option<LogsConfig>,
     openapi: Option<OpenApiConfig>,
+    db: Option<DbConfig>,
     test: Option<TestConfig>,
 }
 
@@ -242,6 +294,7 @@ struct CapabilityConfig {
     #[serde(rename = "file-read")]
     file_read: Option<FileReadCapabilityConfig>,
     secrets: Option<SecretCapabilityConfig>,
+    postgres: Option<PostgresCapabilityConfig>,
 }
 
 impl CapabilityConfig {
@@ -284,6 +337,18 @@ impl CapabilityConfig {
             })
             .transpose()?
             .unwrap_or_default();
+        let postgres_connections = self
+            .postgres
+            .as_ref()
+            .map(|capability| {
+                capability
+                    .connections
+                    .iter()
+                    .map(validate_postgres_connection)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
 
         let file_read_base = (!file_read_paths.is_empty()).then(|| project_root.to_path_buf());
 
@@ -292,6 +357,7 @@ impl CapabilityConfig {
             file_read_base,
             file_read_paths,
             secret_names,
+            postgres_connections,
         })
     }
 }
@@ -351,6 +417,49 @@ fn validate_http_host(host: &str) -> Result<(), ConfigError> {
     Ok(())
 }
 
+fn validate_postgres_connection(
+    connection: &PostgresConnectionCapabilityConfig,
+) -> Result<PostgresConnectionCapability, ConfigError> {
+    validate_capability_name("postgres capability connection", &connection.name)?;
+    validate_http_host(&connection.host).map_err(|error| ConfigError {
+        message: error
+            .message
+            .replace("http capability host", "postgres capability host"),
+    })?;
+    validate_capability_name("postgres capability database", &connection.database)?;
+
+    Ok(PostgresConnectionCapability {
+        name: connection.name.clone(),
+        host: connection.host.clone(),
+        port: connection.port,
+        database: connection.database.clone(),
+    })
+}
+
+fn validate_capability_name(label: &str, value: &str) -> Result<(), ConfigError> {
+    if value.trim().is_empty() {
+        return Err(ConfigError {
+            message: format!("{label} cannot be empty"),
+        });
+    }
+    if value.chars().any(char::is_whitespace) {
+        return Err(ConfigError {
+            message: format!("{label} `{value}` cannot contain whitespace"),
+        });
+    }
+    if value == "*" || value.contains('*') {
+        return Err(ConfigError {
+            message: format!("{label} `{value}` cannot contain wildcards"),
+        });
+    }
+
+    Ok(())
+}
+
+fn default_postgres_port() -> u16 {
+    5432
+}
+
 fn resolve_project_path(
     label: &str,
     project_root: &Path,
@@ -406,6 +515,23 @@ struct SecretCapabilityConfig {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+struct PostgresCapabilityConfig {
+    #[serde(default)]
+    connections: Vec<PostgresConnectionCapabilityConfig>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct PostgresConnectionCapabilityConfig {
+    name: String,
+    host: String,
+    #[serde(default = "default_postgres_port")]
+    port: u16,
+    database: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct OpenApiConfig {
     provider: Option<String>,
 }
@@ -416,6 +542,13 @@ struct LogsConfig {
     provider: Option<String>,
     default_environment: Option<String>,
     default_since: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct DbConfig {
+    provider: Option<String>,
+    default_environment: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -567,6 +700,69 @@ mod tests {
         let config = ConduitConfig::load_from_dir(&root).unwrap().unwrap();
 
         assert_eq!(config.logs_plugin().unwrap(), None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn resolves_db_config_and_postgres_capability() {
+        let root = write_config(
+            "db-plugin",
+            r#"
+            [plugins.company]
+            path = ".conduit/plugins/company.wasm"
+
+            [plugins.company.capabilities.postgres]
+            connections = [
+              { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
+              { name = "checkout-staging", host = "staging-db.example.com", port = 6543, database = "service_db" },
+            ]
+
+            [db]
+            provider = "company"
+            default_environment = "test"
+            "#,
+        );
+
+        let config = ConduitConfig::load_from_dir(&root).unwrap().unwrap();
+        let db = config.db().unwrap().unwrap();
+        let plugin = config.db_plugin().unwrap().unwrap();
+
+        assert_eq!(db.provider.as_deref(), Some("company"));
+        assert_eq!(db.default_environment.as_deref(), Some("test"));
+        assert_eq!(plugin.name, "company");
+        assert_eq!(
+            plugin.capabilities.postgres_connections,
+            [
+                PostgresConnectionCapability {
+                    name: "checkout-test".to_string(),
+                    host: "test-db.example.com".to_string(),
+                    port: 5432,
+                    database: "postgres".to_string(),
+                },
+                PostgresConnectionCapability {
+                    name: "checkout-staging".to_string(),
+                    host: "staging-db.example.com".to_string(),
+                    port: 6543,
+                    database: "service_db".to_string(),
+                },
+            ]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn db_fixture_provider_does_not_resolve_plugin() {
+        let root = write_config(
+            "db-fixture-provider",
+            r#"
+            [db]
+            provider = "fixture"
+            "#,
+        );
+
+        let config = ConduitConfig::load_from_dir(&root).unwrap().unwrap();
+
+        assert_eq!(config.db_plugin().unwrap(), None);
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -16,14 +16,15 @@ Plugin contracts live in `wit/conduit-plugin`.
 - `openapi-provider-v1`: lists operations and fetches one operation by
   service, method, path, and optional environment.
 - `logs-provider-v1`: searches logs and handles provider-specific auth.
+- `db-provider-v1`: lists, describes, and reads service-owned DB resources.
 
 Every plugin exports `metadata` and reports:
 
 - `id`: stable plugin id.
 - `version`: plugin artifact version.
 - `protocol-version`: currently `1`.
-- `providers`: implemented provider ids, such as `openapi-provider-v1` or
-  `logs-provider-v1`.
+- `providers`: implemented provider ids, such as `openapi-provider-v1`,
+  `logs-provider-v1`, or `db-provider-v1`.
 
 Conduit rejects a plugin when the protocol version or provider list does not
 match the configured command.
@@ -37,6 +38,7 @@ Supported grants today:
 
 - `file-read.paths`: relative project paths the plugin may read.
 - `http.hosts`: exact HTTP hosts the plugin may call.
+- `postgres.connections`: exact named PostgreSQL targets the plugin may query.
 - `secrets.names`: exact user-scoped secret names the plugin may read or write.
 
 Example OpenAPI provider:
@@ -73,6 +75,28 @@ default_environment = "staging"
 default_since = "15m"
 ```
 
+Example DB provider:
+
+```toml
+[plugins.company-db]
+path = ".conduit/plugins/company-db.wasm"
+
+[plugins.company-db.capabilities.postgres]
+connections = [
+  { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
+]
+
+[plugins.company-db.capabilities.secrets]
+names = [
+  "company-db/checkout/test/username",
+  "company-db/checkout/test/password",
+]
+
+[db]
+provider = "company-db"
+default_environment = "test"
+```
+
 Repository config should not contain credentials, cookies, tokens, or raw log
 captures. Use the secret capability for user-scoped auth material.
 
@@ -98,6 +122,13 @@ For a logs provider, keep the adapter focused on:
 - returning normalized log events;
 - storing and checking auth through `secret-store-v1`.
 
+For a DB provider, keep the adapter focused on:
+
+- mapping service/resource names to backend tables, views, or APIs;
+- resolving environment-specific connection and secret names;
+- generating bounded read-only queries through host capabilities;
+- returning resource descriptions and records as normalized provider records.
+
 Provider-specific fields can be returned through JSON escape hatches where the
 contract allows them, but compact text output should remain useful without raw
 backend payloads.
@@ -121,6 +152,8 @@ conduit plugin check --path .conduit/plugins/company-openapi.wasm
 conduit plugin check --provider openapi
 conduit plugin check --path .conduit/plugins/company-logs.wasm --provider logs
 conduit plugin check --provider logs
+conduit plugin check --path .conduit/plugins/company-db.wasm --provider db
+conduit plugin check --provider db
 conduit plugin check --path .conduit/plugins/company-openapi.wasm --json
 ```
 

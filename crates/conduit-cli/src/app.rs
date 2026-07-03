@@ -6,9 +6,10 @@
 
 use crate::config::{ConduitConfig, ConfiguredGradleTestProfile};
 use crate::db::{
-    DEFAULT_DB_READ_LIMIT, DbDescribeRequest, DbFilter, DbProvider, DbReadRequest,
-    DbResourceRequest, FixtureDbProvider, MAX_DB_READ_LIMIT,
+    DEFAULT_DB_READ_LIMIT, DbDescribeRequest, DbFilter, DbReadRequest, DbResourceRequest,
+    MAX_DB_READ_LIMIT,
 };
+use crate::db_provider::configured_db_provider;
 use crate::git_status::GitStatusSummary;
 use crate::logs::{
     DEFAULT_LOG_LIMIT, DEFAULT_LOG_WATCH_LIMIT, LogAuthRequest, LogAuthStatus, LogDiagnostic,
@@ -687,11 +688,16 @@ impl Command {
                 service,
                 environment,
             } => {
-                let provider = FixtureDbProvider;
-                let resources = provider
+                let configured =
+                    configured_db_provider().map_err(|error| CliError::data(error.message))?;
+                let environment = environment
+                    .clone()
+                    .or(configured.default_environment.clone());
+                let resources = configured
+                    .provider
                     .resources(&DbResourceRequest {
                         service: service.clone(),
-                        environment: environment.clone(),
+                        environment,
                     })
                     .map_err(|error| CliError::data(error.message))?;
 
@@ -707,12 +713,17 @@ impl Command {
                 resource,
                 environment,
             } => {
-                let provider = FixtureDbProvider;
-                let description = provider
+                let configured =
+                    configured_db_provider().map_err(|error| CliError::data(error.message))?;
+                let environment = environment
+                    .clone()
+                    .or(configured.default_environment.clone());
+                let description = configured
+                    .provider
                     .describe(&DbDescribeRequest {
                         service: service.clone(),
                         resource: resource.clone(),
-                        environment: environment.clone(),
+                        environment,
                     })
                     .map_err(|error| CliError::data(error.message))?;
 
@@ -731,12 +742,17 @@ impl Command {
                 filters,
                 limit,
             } => {
-                let provider = FixtureDbProvider;
-                let result = provider
+                let configured =
+                    configured_db_provider().map_err(|error| CliError::data(error.message))?;
+                let environment = environment
+                    .clone()
+                    .or(configured.default_environment.clone());
+                let result = configured
+                    .provider
                     .read(&DbReadRequest {
                         service: service.clone(),
                         resource: resource.clone(),
-                        environment: environment.clone(),
+                        environment,
                         id: id.clone(),
                         filters: filters.clone(),
                         limit: *limit,
@@ -1704,7 +1720,7 @@ fn plugin_check_target(args: PluginCheckArgs) -> Result<PluginCheckTarget, CliEr
             plugin_check_provider(&provider)?,
         )),
         (None, None) => Err(CliError::usage(
-            "plugin check requires --path <component.wasm> or --provider <openapi|logs>",
+            "plugin check requires --path <component.wasm> or --provider <openapi|logs|db>",
         )),
     }
 }
@@ -1712,7 +1728,7 @@ fn plugin_check_target(args: PluginCheckArgs) -> Result<PluginCheckTarget, CliEr
 fn plugin_check_provider(value: &str) -> Result<PluginCheckProvider, CliError> {
     PluginCheckProvider::from_name(value).ok_or_else(|| {
         CliError::usage(format!(
-            "unknown plugin provider `{value}`; expected `openapi` or `logs`"
+            "unknown plugin provider `{value}`; expected `openapi`, `logs`, or `db`"
         ))
     })
 }
@@ -2296,6 +2312,23 @@ mod tests {
             Command::PluginCheck {
                 format: OutputFormat::Text,
                 target: PluginCheckTarget::ConfiguredProvider(PluginCheckProvider::Logs)
+            }
+        );
+    }
+
+    #[test]
+    fn parses_plugin_check_configured_db_provider() {
+        assert_eq!(
+            parse([
+                "plugin".to_string(),
+                "check".to_string(),
+                "--provider".to_string(),
+                "db".to_string(),
+            ])
+            .unwrap(),
+            Command::PluginCheck {
+                format: OutputFormat::Text,
+                target: PluginCheckTarget::ConfiguredProvider(PluginCheckProvider::Db)
             }
         );
     }

@@ -1,4 +1,6 @@
 use crate::config::PluginCapabilities;
+use crate::plugin_bindings::db::conduit::plugin::postgres_query_v1 as db_postgres;
+use crate::plugin_bindings::db::conduit::plugin::secret_store_v1 as db_secret;
 use crate::plugin_bindings::logs::conduit::plugin::file_read_v1 as logs_file_read;
 use crate::plugin_bindings::logs::conduit::plugin::http_client_v2 as logs_http;
 use crate::plugin_bindings::logs::conduit::plugin::secret_store_v1 as logs_secret;
@@ -73,6 +75,32 @@ impl logs_secret::Host for PluginHostState {
     fn delete(&mut self, name: String) -> Result<bool, logs_secret::SecretError> {
         secret_delete_with_capabilities(&self.capabilities.secret_names, &name)
             .map_err(logs_secret_error)
+    }
+}
+
+impl db_secret::Host for PluginHostState {
+    fn read(&mut self, name: String) -> Result<Option<String>, db_secret::SecretError> {
+        secret_read_with_capabilities(&self.capabilities.secret_names, &name)
+            .map_err(db_secret_error)
+    }
+
+    fn write(&mut self, name: String, value: String) -> Result<bool, db_secret::SecretError> {
+        secret_write_with_capabilities(&self.capabilities.secret_names, &name, &value)
+            .map_err(db_secret_error)
+    }
+
+    fn delete(&mut self, name: String) -> Result<bool, db_secret::SecretError> {
+        secret_delete_with_capabilities(&self.capabilities.secret_names, &name)
+            .map_err(db_secret_error)
+    }
+}
+
+impl db_postgres::Host for PluginHostState {
+    fn query(
+        &mut self,
+        request: db_postgres::PostgresQuery,
+    ) -> Result<db_postgres::PostgresQueryResult, db_postgres::PostgresError> {
+        postgres_query_with_capabilities(&self.capabilities, request)
     }
 }
 
@@ -204,6 +232,110 @@ fn http_request(
         headers,
         body,
     })
+}
+
+fn postgres_query_with_capabilities(
+    capabilities: &PluginCapabilities,
+    request: db_postgres::PostgresQuery,
+) -> Result<db_postgres::PostgresQueryResult, db_postgres::PostgresError> {
+    let connection = capabilities
+        .postgres_connections
+        .iter()
+        .find(|connection| connection.name == request.connection.name)
+        .ok_or_else(|| {
+            db_postgres_error(
+                db_postgres::PostgresErrorKind::PermissionDenied,
+                format!(
+                    "postgres access denied for connection `{}`",
+                    request.connection.name
+                ),
+            )
+        })?;
+    validate_read_only_sql(&request.sql).map_err(db_postgres_invalid_request)?;
+
+    let timeout = Duration::from_millis(u64::from(request.timeout_ms.unwrap_or(30_000)));
+    let connect_timeout = Duration::from_millis(u64::from(
+        request.connection.connect_timeout_ms.unwrap_or(10_000),
+    ));
+    let mut config = postgres::Config::new();
+    config
+        .host(&connection.host)
+        .port(connection.port)
+        .dbname(&connection.database)
+        .user(&request.connection.username)
+        .password(&request.connection.password)
+        .connect_timeout(connect_timeout);
+
+    let mut client = config.connect(postgres::NoTls).map_err(|error| {
+        db_postgres_error(
+            db_postgres::PostgresErrorKind::Unavailable,
+            format!(
+                "failed to connect to postgres connection `{}`: {error}",
+                connection.name
+            ),
+        )
+    })?;
+    let statement_timeout_ms = timeout.as_millis().min(u128::from(u32::MAX)) as u32;
+    client
+        .batch_execute(&format!(
+            "SET default_transaction_read_only = on; SET statement_timeout = {statement_timeout_ms};"
+        ))
+        .map_err(|error| {
+            db_postgres_error(
+                db_postgres::PostgresErrorKind::Unavailable,
+                format!(
+                    "failed to configure postgres connection `{}`: {error}",
+                    connection.name
+                ),
+            )
+        })?;
+
+    let sql = json_wrapped_select(&request.sql);
+    let params = request
+        .params
+        .iter()
+        .map(|param| param as &(dyn postgres::types::ToSql + Sync))
+        .collect::<Vec<_>>();
+    let rows = client.query(&sql, &params).map_err(|error| {
+        db_postgres_error(
+            db_postgres::PostgresErrorKind::Unavailable,
+            format!(
+                "postgres query failed for connection `{}`: {error}",
+                connection.name
+            ),
+        )
+    })?;
+    let rows_json = rows
+        .into_iter()
+        .map(|row| row.get::<_, String>("row_json"))
+        .collect();
+
+    Ok(db_postgres::PostgresQueryResult { rows_json })
+}
+
+fn validate_read_only_sql(sql: &str) -> Result<(), String> {
+    let trimmed = sql.trim();
+    if trimmed.is_empty() {
+        return Err("postgres query cannot be empty".to_string());
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if !(lower.starts_with("select ") || lower.starts_with("with ")) {
+        return Err("postgres query must start with SELECT or WITH".to_string());
+    }
+    if trimmed.contains(';') {
+        return Err(
+            "postgres query must contain a single statement without semicolons".to_string(),
+        );
+    }
+
+    Ok(())
+}
+
+fn json_wrapped_select(sql: &str) -> String {
+    format!(
+        "select row_to_json(conduit_rows)::text as row_json from ({}) conduit_rows",
+        sql.trim()
+    )
 }
 
 fn http_response_from_result(
@@ -470,6 +602,17 @@ fn logs_secret_error(error: HostSecretError) -> logs_secret::SecretError {
     }
 }
 
+fn db_secret_error(error: HostSecretError) -> db_secret::SecretError {
+    db_secret::SecretError {
+        kind: match error.kind {
+            HostSecretErrorKind::InvalidName => db_secret::SecretErrorKind::InvalidName,
+            HostSecretErrorKind::PermissionDenied => db_secret::SecretErrorKind::PermissionDenied,
+            HostSecretErrorKind::Internal => db_secret::SecretErrorKind::Internal,
+        },
+        message: error.message,
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 struct HostHttpResponse {
     status: u16,
@@ -519,6 +662,20 @@ fn logs_http_error(error: HostHttpError) -> logs_http::HttpError {
             HostHttpErrorKind::Internal => logs_http::HttpErrorKind::Internal,
         },
         message: error.message,
+    }
+}
+
+fn db_postgres_invalid_request(message: String) -> db_postgres::PostgresError {
+    db_postgres_error(db_postgres::PostgresErrorKind::InvalidRequest, message)
+}
+
+fn db_postgres_error(
+    kind: db_postgres::PostgresErrorKind,
+    message: impl Into<String>,
+) -> db_postgres::PostgresError {
+    db_postgres::PostgresError {
+        kind,
+        message: message.into(),
     }
 }
 
@@ -771,6 +928,39 @@ mod tests {
         let error = validate_secret_capability(&[], "../cookie").unwrap_err();
 
         assert!(matches!(error.kind, HostSecretErrorKind::InvalidName));
+    }
+
+    #[test]
+    fn postgres_host_accepts_read_only_queries() {
+        validate_read_only_sql("select * from payment_account where id = $1").unwrap();
+        validate_read_only_sql("with rows as (select 1 as id) select * from rows").unwrap();
+    }
+
+    #[test]
+    fn postgres_host_rejects_non_read_queries() {
+        let error =
+            validate_read_only_sql("update payment_account set status = 'ACTIVE'").unwrap_err();
+
+        assert_eq!(error, "postgres query must start with SELECT or WITH");
+    }
+
+    #[test]
+    fn postgres_host_rejects_multiple_statements() {
+        let error = validate_read_only_sql("select * from payment_account; select * from users")
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            "postgres query must contain a single statement without semicolons"
+        );
+    }
+
+    #[test]
+    fn postgres_host_wraps_rows_as_json() {
+        assert_eq!(
+            json_wrapped_select("select id, status from payment_account"),
+            "select row_to_json(conduit_rows)::text as row_json from (select id, status from payment_account) conduit_rows"
+        );
     }
 
     #[cfg(unix)]

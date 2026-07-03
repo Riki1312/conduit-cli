@@ -148,33 +148,58 @@ impl DbReadResult {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum DbStatus {
     Ok,
+    Partial,
+    AuthRequired,
+    Unavailable,
+    InvalidRequest,
+    Error,
 }
 
 impl DbStatus {
-    fn as_str(&self) -> &'static str {
+    pub(crate) fn as_str(&self) -> &'static str {
         match self {
             Self::Ok => "ok",
+            Self::Partial => "partial",
+            Self::AuthRequired => "auth_required",
+            Self::Unavailable => "unavailable",
+            Self::InvalidRequest => "invalid_request",
+            Self::Error => "error",
         }
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct DbError {
+    pub(crate) kind: DbErrorKind,
     pub(crate) message: String,
 }
 
 impl DbError {
-    fn not_found(message: impl Into<String>) -> Self {
+    pub(crate) fn new(kind: DbErrorKind, message: impl Into<String>) -> Self {
         Self {
+            kind,
             message: message.into(),
         }
     }
 
-    fn invalid_request(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-        }
+    fn not_found(message: impl Into<String>) -> Self {
+        Self::new(DbErrorKind::NotFound, message)
     }
+
+    fn invalid_request(message: impl Into<String>) -> Self {
+        Self::new(DbErrorKind::InvalidRequest, message)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DbErrorKind {
+    AuthRequired,
+    Internal,
+    InvalidRequest,
+    NotFound,
+    PermissionDenied,
+    Unavailable,
+    Unsupported,
 }
 
 pub(crate) trait DbProvider {

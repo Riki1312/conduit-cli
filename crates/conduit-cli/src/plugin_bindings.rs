@@ -11,3 +11,10 @@ pub(crate) mod logs {
         world: "logs-provider",
     });
 }
+
+pub(crate) mod db {
+    wasmtime::component::bindgen!({
+        path: "../../wit/conduit-plugin",
+        world: "db-provider",
+    });
+}

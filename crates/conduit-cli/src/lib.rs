@@ -11,6 +11,7 @@ mod app;
 
 mod config;
 mod db;
+mod db_provider;
 mod git_status;
 mod logs;
 mod logs_provider;
