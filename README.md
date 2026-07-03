@@ -4,22 +4,21 @@ Conduit turns noisy developer tools into compact, structured facts for humans,
 agents, scripts, and IDEs.
 
 Modern engineering work crosses test runners, build tools, logs, OpenAPI docs,
-Git worktrees, service catalogs, and company dashboards. Each system has its
-own output shape and failure modes. Conduit sits above them as a small command
-layer that:
+Git worktrees, service catalogs, and internal dashboards. Conduit sits above
+those systems as a small, product-neutral command layer:
 
-- reduces noisy output to stable summaries;
-- preserves full logs and state when they are needed;
-- gives agents deterministic text, JSON, and JSONL to consume;
-- keeps company-specific systems behind explicit plugins;
-- avoids encoding one person's workflow into the core CLI.
+- reduce noisy output to stable summaries;
+- preserve full logs and state when deeper inspection is needed;
+- emit deterministic text, JSON, and JSONL for agents and scripts;
+- keep company-specific systems behind explicit WebAssembly plugins;
+- avoid baking one person's workflow into the core CLI.
 
-The core is product-neutral. Project and company behavior belongs in
-configuration and WebAssembly Component Model plugins.
+Project and company behavior belongs in `.conduit/conduit.toml` and plugins.
+Provider-backed commands fail clearly until a project selects a provider.
 
 ## Install
 
-The repository pins Rust `1.94.0`. Install the local binary from a checkout:
+The repository pins Rust `1.94.0`.
 
 ```bash
 cargo install --path crates/conduit-cli
@@ -38,53 +37,30 @@ Use `--help` on any command to inspect flags:
 conduit test run gradle --help
 ```
 
-## Start With
+## Core Workflows
 
-These commands show the intended shape of Conduit output:
+### Tests
 
-```bash
-conduit test run gradle --tests SomeTest
-conduit test failed
-conduit git status
-conduit worktree list --root ..
-```
-
-For real project integrations, configure providers and profiles in
-`.conduit/conduit.toml`. Provider-backed commands fail with a clear error until
-a project config selects a provider.
-
-## Tests
-
-`conduit test run gradle` wraps `./gradlew`, captures stdout and stderr to a log
-file, parses JUnit-style XML reports, and prints a compact summary.
-
-Common commands:
+`conduit test run gradle` wraps `./gradlew`, captures raw output to
+`.conduit/state`, parses JUnit XML, and prints a compact summary.
 
 ```bash
 conduit test run gradle --tests SomeTest
 conduit test run gradle --failed
 conduit test run gradle --profile integration --tests '*SdkTest'
-conduit test run gradle --mode integration --task integrationTest
-conduit test run gradle --timeout 2m --tests SomeTest
-conduit test run gradle --heartbeat 30s --tests SomeTest
-conduit test run gradle -- -Penvironment=staging
-conduit test run gradle --task :service:test --tests SomeTest
-conduit test run gradle \
-  --task :service:test \
-  --report-path service/build/test-results/test \
-  --tests SomeTest
-conduit test run gradle --tests SomeTest --tail 20
+conduit test run gradle --task :service:test --tests SomeTest --tail 20
+conduit test rerun gradle
+conduit test failed --tail 20
+conduit test log --tail 80
 ```
 
-Output fields are intentionally stable and easy to scan:
+Example output:
 
 ```text
 runner: gradle
-profile: none
 mode: unit
 termination: exit
 test_outcome: executed
-command: ./gradlew test --tests SomeTest
 exit_code: 0
 log_path: .conduit/state/logs/test-run-...
 report_status: fresh
@@ -92,30 +68,10 @@ status: passed
 tests_ran: 1
 tests_passed: 1
 failures: 0
-sources: 1
-passed_selectors: 1
 passed: com.example.SomeTest.passes
 ```
 
-Useful follow-up commands:
-
-```bash
-conduit test last
-conduit test failed
-conduit test failed --tail 20
-conduit test rerun gradle
-conduit test log --tail 80
-conduit test log --path .conduit/state/logs/test-run-123.log --json
-conduit test failures build/test-results/test
-conduit test failures build/test-results/test --json
-```
-
-State files are written under `.conduit/state` by default. Set
-`CONDUIT_STATE_DIR` to override this location.
-
-Configure reusable Gradle profiles in `.conduit/conduit.toml`. Conduit
-discovers config in the current directory first, then walks ancestors, so
-workspace-level profiles can be shared by nested worktrees.
+Reusable Gradle profiles live in project config:
 
 ```toml
 [test.gradle.profiles.integration]
@@ -123,29 +79,20 @@ task = "test"
 report_path = "build/test-results/test"
 mode = "integration"
 args = ["-Dexample.integration=true"]
-
-[test.gradle.profiles.integration.env]
-JAVA_HOME = "/path/to/jdk"
 ```
 
-Profile values provide defaults. Command-line flags and passthrough Gradle
-arguments can still refine a specific run.
+### Logs
 
-## Logs
-
-Logs commands provide normalized service log search, compact text rendering,
-JSON output, JSONL watch output, and provider-neutral wait/watch loops.
+Logs commands provide normalized search, error-focused views, JSON output, and
+watch/wait loops. They require a configured logs provider.
 
 ```bash
-conduit logs search fixture-service --cid CID-123 --date 2026-05-22
-conduit logs search fixture-service --message ACCOUNT_NOT_ACTIVATED --date 2026-05-22
-conduit logs search fixture-service --exclude-message 'known noise' --limit 0
-conduit logs errors fixture-service --date 2026-05-22
-conduit logs wait fixture-service --cid CID-123 --timeout 2m
-conduit logs watch fixture-service --level ERROR --since now --jsonl
-conduit logs auth --env staging
-conduit logs auth --env staging --check
-conduit logs search fixture-service --json
+conduit logs search checkout-service --since 15m --level ERROR
+conduit logs search checkout-service --message 'known text' --limit 0
+conduit logs errors checkout-service --since 1h --limit 20
+conduit logs wait checkout-service --since now --message 'job completed'
+conduit logs watch checkout-service --level ERROR --since now --jsonl
+conduit logs auth --check
 ```
 
 Useful filters include `--env`, `--since`, `--from`, `--to`, `--date`,
@@ -153,40 +100,9 @@ Useful filters include `--env`, `--since`, `--from`, `--to`, `--date`,
 `--exclude-message`, `--exclude-logger`, `--exclude-class`, `--limit`, and
 `--include-trace`.
 
-`logs errors` is a convenience command for error-level logs and includes stack
-traces by default. `logs wait` exits successfully when a matching log appears
-and exits non-zero on timeout. `logs watch` keeps polling until interrupted, or
-until an optional `--timeout` is reached.
+### OpenAPI
 
-Configure logs defaults and plugin capabilities in `.conduit/conduit.toml`:
-
-```toml
-[plugins.company-logs]
-path = ".conduit/plugins/company-logs.wasm"
-
-[plugins.company-logs.capabilities.http]
-hosts = ["logs.example.com"]
-
-[plugins.company-logs.capabilities.secrets]
-names = ["company-logs/staging/token"]
-
-[defaults]
-environment = "staging"
-
-[logs]
-provider = "company-logs"
-default_since = "15m"
-```
-
-Secret capabilities grant exact user-scoped secret names. Conduit stores plugin
-secrets under `$CONDUIT_SECRET_DIR`, `$XDG_STATE_HOME/conduit/secrets`, or
-`~/.local/state/conduit/secrets`; repository files should not contain cookies
-or tokens.
-
-## OpenAPI
-
-OpenAPI commands expose normalized API operation facts from a configured
-provider. Projects must configure a provider explicitly.
+OpenAPI commands expose normalized operation facts from a configured provider.
 
 ```bash
 conduit openapi operation --service catalog-service --method GET --path /items
@@ -194,9 +110,41 @@ conduit openapi search --service catalog-service --query item_id --method GET
 conduit openapi list --service catalog-service --json
 ```
 
-Configure an OpenAPI provider plugin:
+### DB
+
+DB commands expose constrained operational data access through service-owned
+resources. The first implementation is read-only: no raw SQL, writes, delete,
+bulk update, or schema changes.
+
+```bash
+conduit db resources checkout-service --env test
+conduit db describe checkout-service payment_account --env test
+conduit db read checkout-service payment_account --id acc_123 --env test
+conduit db read checkout-service payment_account --filter status=ACTIVE --limit 20
+```
+
+### Git, Worktrees, And Stats
+
+```bash
+conduit git status
+conduit git status --path ../some-repo --json
+conduit worktree list --root /path/to/worktrees
+conduit stats
+conduit stats --json
+```
+
+Stats are user-scoped, silent, and best-effort. A failed stats write never
+changes command output.
+
+## Project Config
+
+Conduit discovers `.conduit/conduit.toml` in the current directory, then walks
+ancestors. A workspace config can therefore serve nested worktrees.
 
 ```toml
+[defaults]
+environment = "staging"
+
 [plugins.company-openapi]
 path = ".conduit/plugins/company-openapi.wasm"
 
@@ -208,26 +156,20 @@ paths = [".conduit/company-openapi"]
 
 [openapi]
 provider = "company-openapi"
-```
 
-## DB
+[plugins.company-logs]
+path = ".conduit/plugins/company-logs.wasm"
 
-DB commands expose constrained operational data access through service-owned
-resources. The first slice is read-only and requires a configured DB provider.
+[plugins.company-logs.capabilities.http]
+hosts = ["logs.example.com"]
 
-```bash
-conduit db resources checkout-service --env test
-conduit db describe checkout-service payment_account --env test
-conduit db read checkout-service payment_account --id acc_123 --env test
-conduit db read checkout-service payment_account --filter status=ACTIVE --limit 20
-conduit db read checkout-service payment_account --id acc_123 --json
-```
+[plugins.company-logs.capabilities.secrets]
+names = ["company-logs/staging/token"]
 
-The provider contract intentionally avoids raw SQL, delete, bulk update,
-writes, and schema changes in the first implementation. DB plugins can use
-exact secret grants and named PostgreSQL connections configured by the project:
+[logs]
+provider = "company-logs"
+default_since = "15m"
 
-```toml
 [plugins.company-db]
 path = ".conduit/plugins/company-db.wasm"
 
@@ -242,48 +184,20 @@ names = [
   "company-db/checkout/test/password",
 ]
 
-[defaults]
-environment = "staging"
-
 [db]
 provider = "company-db"
 ```
 
-The PostgreSQL host capability is read-only and exact-connection based; plugins
-do not receive arbitrary socket or process access. `ssl_mode` defaults to
-`disable`; use `require` with `ssl_root_cert` when the database requires TLS
-with a project-pinned CA bundle.
-
-## Git And Worktrees
-
-```bash
-conduit git status
-conduit git status --path ../some-repo --json
-conduit worktree list --root /path/to/worktrees
-```
-
-## Stats
-
-`conduit stats` shows user-level adoption and noise-reduction counters. Stats
-updates are silent and best-effort; a failed stats write never changes command
-output.
-
-```bash
-conduit stats
-conduit stats --json
-```
-
-Usage stats are written under `$XDG_STATE_HOME/conduit` or
-`~/.local/state/conduit`; set `CONDUIT_STATS_DIR` to override the stats
-location.
+Secrets are exact user-scoped grants. Conduit stores plugin secrets under
+`$CONDUIT_SECRET_DIR`, `$XDG_STATE_HOME/conduit/secrets`, or
+`~/.local/state/conduit/secrets`; repository files should not contain cookies,
+tokens, usernames, or passwords.
 
 ## Plugins
 
 Plugins are WebAssembly components that implement typed provider contracts.
-They return data to Conduit; Conduit owns rendering, validation, output shape,
-and capability enforcement.
-
-Validate and warm a plugin before regular commands use it:
+They return structured data to Conduit; Conduit owns rendering, validation,
+output shape, and capability enforcement.
 
 ```bash
 conduit plugin check --path .conduit/plugins/company-openapi.wasm
@@ -292,11 +206,10 @@ conduit plugin check --path .conduit/plugins/company-logs.wasm --provider logs
 conduit plugin check --provider logs
 conduit plugin check --path .conduit/plugins/company-db.wasm --provider db
 conduit plugin check --provider db
-conduit plugin check --path .conduit/plugins/company-openapi.wasm --json
 ```
 
-See [Building Plugins](docs/plugin-build-guide.md) for the contract shape,
-configuration examples, and implementation guidance.
+See [Building Plugins](docs/plugin-build-guide.md) for contract details and
+implementation guidance.
 
 ## Development
 
@@ -309,13 +222,12 @@ cargo clippy --workspace --all-targets -- -D warnings
 Source layout:
 
 - `crates/conduit-cli/src/app.rs`: command parsing and dispatch.
-- `crates/conduit-cli/src/logs.rs`: logs query model, fixture provider,
-  watch/wait loop, and rendering.
 - `crates/conduit-cli/src/test_run.rs`: Gradle runner integration.
+- `crates/conduit-cli/src/logs.rs`: logs query model and rendering.
 - `crates/conduit-cli/src/plugin_runtime.rs`: Wasmtime component runtime.
 - `wit/`: plugin contracts.
 
-Design and project docs:
+Project docs:
 
 - [Product direction](docs/product-direction.md)
 - [Plugin system direction](docs/plugin-system-direction.md)
