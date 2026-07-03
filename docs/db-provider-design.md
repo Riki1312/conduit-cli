@@ -323,7 +323,7 @@ path = ".conduit/plugins/company-db.wasm"
 
 [plugins.company-db.capabilities.postgres]
 connections = [
-  { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
+  { name = "checkout-test", host = "test-db.example.com", database = "postgres", ssl_mode = "require", ssl_root_cert = ".conduit/certs/rds.pem" },
 ]
 
 [plugins.company-db.capabilities.secrets]
@@ -336,6 +336,9 @@ names = [
 provider = "company-db"
 default_environment = "test"
 ```
+
+`ssl_mode` defaults to `disable`; `require` can be paired with `ssl_root_cert`
+when a database needs TLS with a project-pinned CA bundle.
 
 The PostgreSQL capability is intentionally narrow. Plugins request an exact
 connection name, pass credentials read through `secret-store-v1`, and submit a

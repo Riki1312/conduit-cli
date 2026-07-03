@@ -261,6 +261,16 @@ pub(crate) struct PostgresConnectionCapability {
     pub(crate) host: String,
     pub(crate) port: u16,
     pub(crate) database: String,
+    pub(crate) ssl_mode: PostgresSslMode,
+    pub(crate) ssl_root_cert: Option<PathBuf>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PostgresSslMode {
+    #[default]
+    Disable,
+    Require,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -344,7 +354,7 @@ impl CapabilityConfig {
                 capability
                     .connections
                     .iter()
-                    .map(validate_postgres_connection)
+                    .map(|connection| validate_postgres_connection(project_root, connection))
                     .collect::<Result<Vec<_>, _>>()
             })
             .transpose()?
@@ -418,6 +428,7 @@ fn validate_http_host(host: &str) -> Result<(), ConfigError> {
 }
 
 fn validate_postgres_connection(
+    project_root: &Path,
     connection: &PostgresConnectionCapabilityConfig,
 ) -> Result<PostgresConnectionCapability, ConfigError> {
     validate_capability_name("postgres capability connection", &connection.name)?;
@@ -427,12 +438,19 @@ fn validate_postgres_connection(
             .replace("http capability host", "postgres capability host"),
     })?;
     validate_capability_name("postgres capability database", &connection.database)?;
+    let ssl_root_cert = connection
+        .ssl_root_cert
+        .as_ref()
+        .map(|path| resolve_project_path("postgres capability ssl_root_cert", project_root, path))
+        .transpose()?;
 
     Ok(PostgresConnectionCapability {
         name: connection.name.clone(),
         host: connection.host.clone(),
         port: connection.port,
         database: connection.database.clone(),
+        ssl_mode: connection.ssl_mode,
+        ssl_root_cert,
     })
 }
 
@@ -528,6 +546,9 @@ struct PostgresConnectionCapabilityConfig {
     #[serde(default = "default_postgres_port")]
     port: u16,
     database: String,
+    #[serde(default)]
+    ssl_mode: PostgresSslMode,
+    ssl_root_cert: Option<PathBuf>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
@@ -714,7 +735,7 @@ mod tests {
             [plugins.company.capabilities.postgres]
             connections = [
               { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
-              { name = "checkout-staging", host = "staging-db.example.com", port = 6543, database = "service_db" },
+              { name = "checkout-staging", host = "staging-db.example.com", port = 6543, database = "service_db", ssl_mode = "require", ssl_root_cert = ".conduit/certs/rds.pem" },
             ]
 
             [db]
@@ -738,12 +759,16 @@ mod tests {
                     host: "test-db.example.com".to_string(),
                     port: 5432,
                     database: "postgres".to_string(),
+                    ssl_mode: PostgresSslMode::Disable,
+                    ssl_root_cert: None,
                 },
                 PostgresConnectionCapability {
                     name: "checkout-staging".to_string(),
                     host: "staging-db.example.com".to_string(),
                     port: 6543,
                     database: "service_db".to_string(),
+                    ssl_mode: PostgresSslMode::Require,
+                    ssl_root_cert: Some(root.join(".conduit/certs/rds.pem")),
                 },
             ]
         );

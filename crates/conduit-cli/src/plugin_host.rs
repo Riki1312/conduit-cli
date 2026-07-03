@@ -1,4 +1,4 @@
-use crate::config::PluginCapabilities;
+use crate::config::{PluginCapabilities, PostgresSslMode};
 use crate::plugin_bindings::db::conduit::plugin::postgres_query_v1 as db_postgres;
 use crate::plugin_bindings::db::conduit::plugin::secret_store_v1 as db_secret;
 use crate::plugin_bindings::logs::conduit::plugin::file_read_v1 as logs_file_read;
@@ -266,12 +266,17 @@ fn postgres_query_with_capabilities(
         .password(&request.connection.password)
         .connect_timeout(connect_timeout);
 
-    let mut client = config.connect(postgres::NoTls).map_err(|error| {
+    let mut client = connect_postgres(
+        &config,
+        connection.ssl_mode,
+        connection.ssl_root_cert.as_deref(),
+    )
+    .map_err(|error| {
         db_postgres_error(
             db_postgres::PostgresErrorKind::Unavailable,
             format!(
-                "failed to connect to postgres connection `{}`: {error}",
-                connection.name
+                "failed to connect to postgres connection `{}`: {}",
+                connection.name, error
             ),
         )
     })?;
@@ -313,13 +318,39 @@ fn postgres_query_with_capabilities(
     Ok(db_postgres::PostgresQueryResult { rows_json })
 }
 
+fn connect_postgres(
+    config: &postgres::Config,
+    ssl_mode: PostgresSslMode,
+    ssl_root_cert: Option<&Path>,
+) -> Result<postgres::Client, String> {
+    match ssl_mode {
+        PostgresSslMode::Disable => config
+            .connect(postgres::NoTls)
+            .map_err(|error| format!("{error:?}")),
+        PostgresSslMode::Require => {
+            let mut builder =
+                openssl::ssl::SslConnector::builder(openssl::ssl::SslMethod::tls())
+                    .map_err(|error| format!("failed to create TLS connector: {error}"))?;
+            if let Some(path) = ssl_root_cert {
+                builder
+                    .set_ca_file(path)
+                    .map_err(|error| format!("failed to load postgres ssl_root_cert: {error}"))?;
+            }
+            let connector = postgres_openssl::MakeTlsConnector::new(builder.build());
+            config
+                .connect(connector)
+                .map_err(|error| format!("{error:?}"))
+        }
+    }
+}
+
 fn validate_read_only_sql(sql: &str) -> Result<(), String> {
     let trimmed = sql.trim();
     if trimmed.is_empty() {
         return Err("postgres query cannot be empty".to_string());
     }
     let lower = trimmed.to_ascii_lowercase();
-    if !(lower.starts_with("select ") || lower.starts_with("with ")) {
+    if !(starts_with_sql_keyword(&lower, "select") || starts_with_sql_keyword(&lower, "with")) {
         return Err("postgres query must start with SELECT or WITH".to_string());
     }
     if trimmed.contains(';') {
@@ -329,6 +360,11 @@ fn validate_read_only_sql(sql: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn starts_with_sql_keyword(sql: &str, keyword: &str) -> bool {
+    sql.strip_prefix(keyword)
+        .is_some_and(|rest| rest.chars().next().is_some_and(char::is_whitespace))
 }
 
 fn json_wrapped_select(sql: &str) -> String {
@@ -933,6 +969,7 @@ mod tests {
     #[test]
     fn postgres_host_accepts_read_only_queries() {
         validate_read_only_sql("select * from payment_account where id = $1").unwrap();
+        validate_read_only_sql("select\n  id\nfrom payment_account").unwrap();
         validate_read_only_sql("with rows as (select 1 as id) select * from rows").unwrap();
     }
 

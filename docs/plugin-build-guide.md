@@ -83,7 +83,7 @@ path = ".conduit/plugins/company-db.wasm"
 
 [plugins.company-db.capabilities.postgres]
 connections = [
-  { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
+  { name = "checkout-test", host = "test-db.example.com", database = "postgres", ssl_mode = "require", ssl_root_cert = ".conduit/certs/rds.pem" },
 ]
 
 [plugins.company-db.capabilities.secrets]
@@ -96,6 +96,10 @@ names = [
 provider = "company-db"
 default_environment = "test"
 ```
+
+PostgreSQL connections default to `ssl_mode = "disable"`. Use
+`ssl_mode = "require"` and `ssl_root_cert` for TLS with a project-pinned CA
+bundle.
 
 Repository config should not contain credentials, cookies, tokens, or raw log
 captures. Use the secret capability for user-scoped auth material.

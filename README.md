@@ -235,7 +235,7 @@ path = ".conduit/plugins/company-db.wasm"
 
 [plugins.company-db.capabilities.postgres]
 connections = [
-  { name = "checkout-test", host = "test-db.example.com", database = "postgres" },
+  { name = "checkout-test", host = "test-db.example.com", database = "postgres", ssl_mode = "require", ssl_root_cert = ".conduit/certs/rds.pem" },
 ]
 
 [plugins.company-db.capabilities.secrets]
@@ -250,7 +250,9 @@ default_environment = "test"
 ```
 
 The PostgreSQL host capability is read-only and exact-connection based; plugins
-do not receive arbitrary socket or process access.
+do not receive arbitrary socket or process access. `ssl_mode` defaults to
+`disable`; use `require` with `ssl_root_cert` when the database requires TLS
+with a project-pinned CA bundle.
 
 ## Git And Worktrees
 
