@@ -327,6 +327,9 @@ connections = [
   { name = "checkout-test", host = "test-db.example.com", database = "postgres", ssl_mode = "require", ssl_root_cert = ".conduit/certs/rds.pem" },
 ]
 
+[plugins.company-db.capabilities.file-read]
+paths = [".conduit/company-db"]
+
 [plugins.company-db.capabilities.secrets]
 names = [
   "company-db/checkout/test/username",
@@ -343,13 +346,14 @@ provider = "company-db"
 `ssl_mode` defaults to `disable`; `require` can be paired with `ssl_root_cert`
 when a database needs TLS with a project-pinned CA bundle.
 
-The PostgreSQL capability is intentionally narrow. Plugins request an exact
-connection name, pass credentials read through `secret-store-v1`, and submit a
-single read-only query. Conduit core resolves the host/database from project
-config, enforces the connection grant, wraps rows as JSON, and rejects obvious
-non-read statements. For company deployments, a future gateway can centralize
-auth, audit, network policy, and environment routing outside the Conduit
-process without changing the DB provider command shape.
+The PostgreSQL capability is intentionally narrow. Plugins can read project
+manifests through `file-read-v1`, request an exact connection name, pass
+credentials read through `secret-store-v1`, and submit a single read-only query.
+Conduit core resolves the host/database from project config, enforces the
+connection grant, wraps rows as JSON, and rejects obvious non-read statements.
+For company deployments, a future gateway can centralize auth, audit, network
+policy, and environment routing outside the Conduit process without changing
+the DB provider command shape.
 
 ## Exit Semantics
 

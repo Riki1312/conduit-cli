@@ -178,6 +178,9 @@ connections = [
   { name = "checkout-test", host = "test-db.example.com", database = "postgres", ssl_mode = "require", ssl_root_cert = ".conduit/certs/rds.pem" },
 ]
 
+[plugins.company-db.capabilities.file-read]
+paths = [".conduit/company-db"]
+
 [plugins.company-db.capabilities.secrets]
 names = [
   "company-db/checkout/test/username",

@@ -128,6 +128,7 @@ interface db-provider-v1 {
 }
 
 world db-provider {
+  import file-read-v1;
   import secret-store-v1;
   import postgres-query-v1;
 

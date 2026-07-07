@@ -1,4 +1,5 @@
 use crate::config::{PluginCapabilities, PostgresSslMode};
+use crate::plugin_bindings::db::conduit::plugin::file_read_v1 as db_file_read;
 use crate::plugin_bindings::db::conduit::plugin::postgres_query_v1 as db_postgres;
 use crate::plugin_bindings::db::conduit::plugin::secret_store_v1 as db_secret;
 use crate::plugin_bindings::logs::conduit::plugin::file_read_v1 as logs_file_read;
@@ -75,6 +76,12 @@ impl logs_secret::Host for PluginHostState {
     fn delete(&mut self, name: String) -> Result<bool, logs_secret::SecretError> {
         secret_delete_with_capabilities(&self.capabilities.secret_names, &name)
             .map_err(logs_secret_error)
+    }
+}
+
+impl db_file_read::Host for PluginHostState {
+    fn read_text(&mut self, path: String) -> Result<String, db_file_read::FileReadError> {
+        read_text_with_capabilities(&self.capabilities, &path).map_err(db_file_error)
     }
 }
 
@@ -622,6 +629,20 @@ fn logs_file_error(error: HostFileReadError) -> logs_file_read::FileReadError {
                 logs_file_read::FileReadErrorKind::PermissionDenied
             }
             HostFileReadErrorKind::Internal => logs_file_read::FileReadErrorKind::Internal,
+        },
+        message: error.message,
+    }
+}
+
+fn db_file_error(error: HostFileReadError) -> db_file_read::FileReadError {
+    db_file_read::FileReadError {
+        kind: match error.kind {
+            HostFileReadErrorKind::NotFound => db_file_read::FileReadErrorKind::NotFound,
+            HostFileReadErrorKind::InvalidPath => db_file_read::FileReadErrorKind::InvalidPath,
+            HostFileReadErrorKind::PermissionDenied => {
+                db_file_read::FileReadErrorKind::PermissionDenied
+            }
+            HostFileReadErrorKind::Internal => db_file_read::FileReadErrorKind::Internal,
         },
         message: error.message,
     }
