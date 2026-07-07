@@ -14,8 +14,8 @@ or private infrastructure information.
 
 - Do not commit credentials, cookies, tokens, auth headers, or copied log
   payloads.
-- Grant plugin capabilities narrowly: exact HTTP hosts, exact secret names, and
-  project-local file paths.
+- Grant plugin capabilities narrowly: exact HTTP hosts, exact secret names,
+  named database connections, and project-local file paths.
 - Keep company-specific integrations outside the public core.
 - Review generated artifacts before committing them. Plugin build outputs and
   caches should normally remain ignored.

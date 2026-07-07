@@ -72,8 +72,8 @@ format, and render that data consistently.
 
 ### Capabilities Are Explicit
 
-Plugin access to files, network, secrets, environment variables, and subprocesses
-must be explicit. Default to least privilege.
+Plugin access to files, network, secrets, databases, and any future privileged
+host integration must be explicit. Default to least privilege.
 
 ### Building Blocks, Not Workflow Ownership
 
@@ -82,7 +82,7 @@ Conduit should provide reusable building blocks:
 ```text
 conduit test failed
 conduit logs search
-conduit openapi get
+conduit openapi operation
 conduit worktree list
 conduit ci failures
 ```

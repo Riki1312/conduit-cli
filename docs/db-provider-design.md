@@ -367,17 +367,26 @@ outside the Conduit process without changing the DB provider command shape.
   failures, and provider failures exit non-zero.
 - Text and JSON output should make the status explicit.
 
-## First Implementation Slice
+## Implementation Status
 
-1. Add `docs/db-provider-design.md` and link it from project docs.
-2. Add `db` command parsing with fixture provider behavior.
-3. Implement `resources`, `describe`, and `read` against fixture data.
-4. Add compact text and JSON renderers.
-5. Add config loading for `[db]` provider selection and environment defaults.
-6. Add WIT contract and Wasmtime provider loading for `db-provider-v1`.
-7. Add a narrow PostgreSQL host capability for read-only plugin queries.
-8. Build a PostgreSQL-backed example plugin that implements read-only access.
-9. Use the PostgreSQL plugin to validate whether the provider contract needs
-   changes before adding writes.
+The read-only slice is implemented in core:
 
-Insert and update should be documented and implemented as a later slice.
+- `db resources`, `db describe`, and `db read`;
+- compact text and JSON renderers;
+- `[db]` provider selection and shared `[defaults].environment`;
+- `db-provider-v1` WIT contract and Wasmtime provider loading;
+- exact named PostgreSQL connection grants for read-only plugin queries.
+
+Fixture providers are kept for tests and explicit examples. Real projects
+should select a DB plugin in `.conduit/conduit.toml`; Conduit should fail
+clearly when no DB provider is configured.
+
+Next useful slices:
+
+1. Keep dogfooding the PostgreSQL-backed plugin against real pre-production
+   resources.
+2. Refine resource descriptions only where real usage shows a missing field.
+3. Design insert/update separately after the read path is stable.
+
+Insert and update should remain out of scope until the read-only contract has
+been used enough to validate the command shape and provider responsibilities.

@@ -55,8 +55,8 @@ agent. Prefer factual building blocks that can be composed externally.
 - Use Rust for the core CLI.
 - Use Wasmtime and the WebAssembly Component Model for plugin execution.
 - Define plugin contracts with explicit interfaces and versioning.
-- Keep plugins sandboxed through explicit capabilities such as HTTP, filesystem,
-  secrets, and process execution. Default to least privilege.
+- Keep plugins sandboxed through explicit capabilities such as HTTP, file
+  reads, secrets, and named database connections. Default to least privilege.
 - Keep command implementations thin. Domain behavior should live in library
   modules that can be tested without invoking the CLI process.
 - Prefer schemas and typed models over parsing human output.

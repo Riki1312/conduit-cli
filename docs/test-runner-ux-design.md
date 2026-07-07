@@ -1,11 +1,11 @@
 # Test Runner UX Design
 
 Conduit test commands should make noisy build tools usable as precise
-engineering primitives. The current Gradle runner already improves the final
-summary, but dogfooding against several Gradle repositories exposed gaps around
-long runs, environment setup, no-source tasks, and rerun state.
+engineering primitives. Dogfooding against several Gradle repositories exposed
+gaps around long runs, environment setup, no-source tasks, and rerun state.
 
-This document defines the next design direction before implementation.
+This document records the design direction and the implemented behavior for
+Gradle test UX.
 
 ## Dogfooding Observations
 
@@ -301,58 +301,23 @@ failures: 0
 sources: 1
 ```
 
-## Implementation Plan
+## Implementation Status
 
-1. Incremental log writer
-   - Replace `Command::output()` with spawned child processes.
-   - Capture stdout/stderr concurrently.
-   - Write the log file during execution.
-   - Preserve current final output for normal pass/fail cases.
+Implemented:
 
-2. Timeout
-   - Add `--timeout <duration>`.
-   - Parse simple durations like `30s`, `2m`, and `1h`.
-   - Kill the child process on timeout.
-   - Return structured timeout summaries with bounded log tails.
+- incremental log capture while Gradle runs;
+- `--timeout <duration>` with structured timeout summaries;
+- `test_outcome` for executed, no-source, no-matching-tests, runner failure,
+  and unknown outcomes;
+- profile environment variables under `[test.gradle.profiles.<name>.env]`;
+- separate `last-test-run.json` and `last-test-failures.json` state;
+- optional text heartbeats through `--heartbeat <duration>`.
 
-3. No-source and no-matching-tests classification
-   - Add `test_outcome`.
-   - Classify successful no-report Gradle runs as `no_source` when logs support
-     that inference.
-   - Classify missing-selector failures as `no_matching_tests` when Gradle logs
-     include the known diagnostic.
+Still deferred:
 
-4. Profile env
-   - Extend `[test.gradle.profiles.<name>]` with an `env` table.
-   - Apply profile env to the child process.
-   - Reject unresolved interpolation syntax for now.
-
-5. Rerun state separation
-   - Add `last-test-run.json`.
-   - Only update `last-test-failures.json` when parsed failures contain
-     rerunnable selectors.
-   - Add tests for compile failure, missing selector, timeout, and no-source
-     cases.
-
-6. Optional heartbeat
-   - Add `--heartbeat <duration>` after incremental logging is in place.
-   - Keep disabled by default.
-   - Print compact progress lines only in text mode.
-
-7. Profile discovery
-   - Add `conduit test profiles`.
-   - Include profile names, runner, task, report path, mode, arg count, and env
-     key count in text output.
-   - Include exact args and env keys in JSON.
+- `conduit test profiles` for static profile discovery.
 
 ## Open Questions
 
-- Should profile env override existing process env, or should existing env
-  always win? Current recommendation: existing env wins.
 - Should `test run gradle` have a default timeout? Current recommendation: no
   default timeout until we have enough dogfooding data.
-- Should heartbeat output be text-only, or should JSON have an event mode?
-  Current recommendation: text-only heartbeat now, separate JSON event stream
-  later.
-- Should `no_matching_tests` exit code mirror Gradle's non-zero exit code?
-  Current recommendation: yes.

@@ -16,11 +16,11 @@ those systems as a small, product-neutral command layer:
 - avoid baking one person's workflow into the core CLI.
 
 Project and company behavior belongs in `.conduit/conduit.toml` and plugins.
-Provider-backed commands fail clearly until a project selects a provider.
 
 ## Install
 
-Homebrew is the primary install path for released builds:
+Homebrew is the intended install path for released builds. Once the tap is
+published:
 
 ```bash
 brew tap Riki1312/conduit
@@ -156,6 +156,9 @@ changes command output.
 
 Conduit discovers `.conduit/conduit.toml` in the current directory, then walks
 ancestors. A workspace config can therefore serve nested worktrees.
+Provider-backed commands such as logs, OpenAPI, and DB use the provider selected
+by project config. If no provider is selected, they fail with a compact setup
+error instead of guessing a backend.
 
 ```toml
 [defaults]

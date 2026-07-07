@@ -395,23 +395,19 @@ UTC for provider requests and output.
 `--date` should initially mean a UTC day. A future `--timezone` option can be
 added if a provider or team workflow needs local-day semantics.
 
-## Required Capability Evolution
+## Capability Status
 
-The existing plugin host capability set is enough for simple OpenAPI reads, but
-logs need a wider HTTP and state surface.
-
-Likely additions:
+Logs use the shared plugin host capability model:
 
 - `http-client-v2`: method, URL, headers, JSON/text body, timeout, status code,
   response headers, and body.
 - `secret-store-v1`: exact-name secret reads and writes through a
   host-controlled user-scoped store.
-- `browser-auth-v1`: optional host-controlled browser login flow for providers
-  that cannot use API tokens directly.
 
-`process` should remain an escape hatch. Browser automation through a narrow
-host capability is safer and more portable than granting arbitrary process
-execution to a plugin.
+A future `browser-auth-v1` host capability can support providers that cannot
+use API tokens or pasted auth material directly. Browser automation should stay
+behind a narrow host capability rather than exposing arbitrary process
+execution to plugins.
 
 ## Configuration
 
@@ -462,18 +458,20 @@ OpenSearch Dashboards flow:
 This keeps company-specific hostnames, cookie names, dashboard paths, and index
 rules out of core Conduit.
 
-## First Implementation Slice
+## Implementation Status
 
-1. Define the core log query, time range, response, and diagnostic models.
-2. Add text and JSON renderers for bounded search results.
-3. Add `logs` config loading with provider and defaults.
-4. Implement `conduit logs search` with a fixture provider.
-5. Add tests for zero matches, time ranges, JSON output, and exit behavior.
-6. Add `logs errors` as a core convenience command.
-7. Extend plugin HTTP support enough for log search requests.
-8. Implement an OpenSearch plugin prototype outside core.
-9. Add `logs watch` and `logs wait` using repeated bounded searches.
-10. Add `logs auth` once the secret capability shape is clear.
+The core logs slice is implemented:
 
-The implementation should prove the core UX with one backend while preserving a
-portable provider contract.
+- normalized filters, time ranges, result models, and diagnostics;
+- compact text, JSON, and JSONL rendering;
+- `[logs]` provider selection and defaults;
+- `logs search`, `logs errors`, `logs watch`, `logs wait`, and `logs auth`;
+- auth storage and checks through exact secret grants;
+- plugin HTTP support for backend search requests.
+
+Fixture providers are kept for tests and explicit examples. Real projects
+should select a logs plugin in `.conduit/conduit.toml`; Conduit should fail
+clearly when no logs provider is configured.
+
+The next high-value work is provider-specific polish outside core and, only if
+real usage needs it, a narrow browser-auth capability.

@@ -60,8 +60,8 @@
 - Plugin contracts are defined in WIT under `wit/conduit-plugin`.
 - Wasmtime component bindings are compile-validated through
   `wasmtime::component::bindgen!`.
-- Plugins are instantiated with explicit capabilities for file reads, HTTP, and
-  exact user-scoped secret names.
+- Plugins are instantiated with explicit capabilities for file reads, HTTP,
+  exact user-scoped secret names, and named PostgreSQL connections.
 - Plugin metadata must report protocol version `1` and the expected provider
   interface.
 - `plugin check` validates provider metadata by path or from configured
@@ -101,14 +101,12 @@
 
 ## DB Provider Direction
 
-- `docs/db-provider-design.md` captures the proposed constrained operational
-  data interface.
-- The command shape should be `db resources`, `db describe`, `db read`,
-  and later `db insert` and `db update`.
-- Fixture-backed `db resources`, `db describe`, and `db read` are implemented.
+- `docs/db-provider-design.md` captures the constrained operational data
+  interface.
+- `db resources`, `db describe`, and `db read` are implemented.
 - `read` is the single read command; id lookups are modeled as exact reads.
-- The first implementation should be read-only: resources, describe, and read.
-- The first contract should avoid raw SQL, production access, delete, insert,
+- The current implementation is read-only: resources, describe, and read.
+- The contract should avoid raw SQL, production access, delete, insert,
   update, bulk update, schema changes, dry-run flows, and reason prompts.
 - Provider plugins should own auth, database routing, backend queries, resource
   mapping, and write policy.
@@ -143,8 +141,8 @@
 - Release assets include platform archives, checksum files, and a generated
   Homebrew formula based on `packaging/homebrew/conduit.rb.template`.
 - A compact reusable agent skill lives at `skills/conduit/SKILL.md`.
-- The README documents Homebrew-first install, source fallback, generic
-  `npx skills` installation for the bundled agent skill, and compact
+- The README documents the intended Homebrew install path, source fallback,
+  generic `npx skills` installation for the bundled agent skill, and compact
   maintainer release flow.
 - The Homebrew tap itself is expected to live outside this repository and copy
   the generated formula from each release.

@@ -111,42 +111,36 @@ versions. A plugin can implement `openapi-provider@1` and later add
 Conduit should reject incompatible plugins with a compact error that names the
 expected and actual protocol versions.
 
-The first implemented protocol version is `1`. OpenAPI and logs plugin
-providers must declare `protocol-version = "1"` and include their provider id,
-such as `openapi-provider-v1` or `logs-provider-v1`, in their metadata provider
-list.
+The first implemented protocol version is `1`. Provider plugins must declare
+`protocol-version = "1"` and include their provider id, such as
+`openapi-provider-v1`, `logs-provider-v1`, or `db-provider-v1`, in their
+metadata provider list.
 
 ## Capability Model
 
 Capabilities must be explicit. A plugin should receive only the capabilities
 configured for it.
 
-Initial capability families:
+Implemented capability families:
 
-- `http`: outbound HTTP access to allowlisted hosts.
-- `file-read`: read access to allowlisted paths.
-- `file-write`: write access to allowlisted paths.
-- `env`: access to allowlisted environment variables.
-- `secret`: access to named secrets through a host-controlled provider.
-- `process`: execution of allowlisted commands.
-
-The first implementation should avoid `process` unless there is a clear need.
-Most provider adapters should work through HTTP, file-read, and secret access.
+- `http.hosts`: outbound HTTP access to exact allowlisted hosts.
+- `file-read.paths`: read access to exact project-local path grants.
+- `secrets.names`: access to exact user-scoped secret names.
+- `postgres.connections`: access to exact named PostgreSQL connections.
 
 Capabilities are configured in project or user config, not hidden in plugin
-code. Plugin metadata declares what it wants; config grants what this project
-allows.
+code. Plugin metadata can report what it implements; config grants what this
+project allows.
 
-The first implemented capability declarations are `http.hosts`,
-`file-read.paths`, and `secrets.names`. HTTP hosts are exact host strings only;
-wildcards and URL schemes are rejected. Plugin artifact paths and file-read
-paths are resolved relative to the project root and cannot be empty, absolute,
-or contain parent traversal. Secret names are exact user-scoped names only;
-wildcards, absolute paths, parent traversal, and non-ASCII punctuation are
-rejected.
+HTTP hosts are exact host strings only; wildcards and URL schemes are rejected.
+Plugin artifact paths and file-read paths are resolved relative to the project
+root and cannot be empty, absolute, or contain parent traversal. Secret names
+are exact user-scoped names only; wildcards, absolute paths, parent traversal,
+and non-ASCII punctuation are rejected. PostgreSQL access is granted by
+connection name, with host/database details resolved by the core.
 
-The first implemented host imports are `file-read-v1`, `http-client-v1`,
-`http-client-v2`, and `secret-store-v1`.
+The implemented host imports are `file-read-v1`, `http-client-v1`,
+`http-client-v2`, `secret-store-v1`, and `postgres-v1`.
 `file-read-v1` exposes one narrow operation, `read-text(path)`, where `path`
 must be relative and must resolve inside a configured `file-read.paths` grant.
 The host canonicalizes targets before reading so symlink escapes are denied.
@@ -155,6 +149,8 @@ host exactly matches a configured `http.hosts` grant.
 `http-client-v2` adds method, headers, body, response headers, and timeout for
 logs-style backend searches. `secret-store-v1` reads, writes, and deletes exact
 named secrets from a user-scoped store, never from repository files.
+`postgres-v1` executes bounded read-only queries through exact named
+connections configured in project config.
 
 The runtime test suite includes a component fixture that imports
 `file-read-v1`, calls `read-text`, and returns the loaded file contents through
@@ -228,23 +224,19 @@ provider = "company"
 User config may provide local defaults and secrets, but project config should
 decide which provider handles a command in that project.
 
-## First Provider: OpenAPI
+## Implemented Provider Contracts
 
-OpenAPI is the best first provider because it is high-value and has a clean
+OpenAPI was the first provider because it is high-value and has a clean
 contract: request an operation or list of operations, return structured API
-facts.
+facts. Logs and DB now follow the same model.
 
-Target command shape:
+OpenAPI command shape:
 
 ```bash
 conduit openapi operation --service catalog-service --method GET --path /items
 conduit openapi list --service catalog-service
 conduit openapi search --service catalog-service --query item_id
 ```
-
-The first implementation should add the command and core model with an
-in-process fixture provider before adding Wasmtime. That proves the output
-schema and command semantics before locking the component boundary.
 
 ### Request Shape
 
@@ -397,20 +389,25 @@ world openapi-provider {
 }
 ```
 
-## Implementation Sequence
+## Implementation Status
 
-1. Add this direction doc.
-2. Add `conduit openapi operation` and `conduit openapi list` with an
-   in-process fixture provider.
-3. Add config loading for provider selection.
-4. Extract the OpenAPI provider trait.
-5. Add WIT definitions matching the trait.
-6. Add Wasmtime runtime support for component instantiation.
-7. Move the fixture provider behind a component in tests.
-8. Wire configured OpenAPI commands to plugin-backed providers.
-9. Add explicit capability declarations and the first host import,
-   `file-read-v1`.
-10. Build a private/company plugin against the same contract.
+The core plugin runtime is implemented with Wasmtime component loading,
+metadata validation, project configuration, host capability enforcement, and a
+project-local compilation cache.
 
-This order keeps the user-facing contract and data model ahead of runtime
-complexity.
+Implemented provider worlds:
+
+- `openapi-provider-v1`;
+- `logs-provider-v1`;
+- `db-provider-v1`.
+
+Implemented host imports:
+
+- `file-read-v1`;
+- `http-client-v1`;
+- `http-client-v2`;
+- `secret-store-v1`;
+- `postgres-v1`.
+
+Fixture providers remain for tests and explicit examples. Real projects should
+select provider plugins in `.conduit/conduit.toml`.
