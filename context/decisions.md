@@ -155,5 +155,5 @@ architecture, behavior, or workflow.
 - `impact`: Tag pushes run `.github/workflows/release.yml`; maintainers update
   the external tap from the release's generated `conduit.rb`. Agent guidance is
   distributed as a lean skill under `skills/conduit/SKILL.md`.
-- `evidence`: `.github/workflows/release.yml`; `docs/install.md`;
+- `evidence`: `.github/workflows/release.yml`; `README.md`;
   `packaging/homebrew/conduit.rb.template`; `skills/conduit/SKILL.md`.

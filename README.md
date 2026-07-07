@@ -1,5 +1,7 @@
 # Conduit CLI
 
+[![skills.sh](https://skills.sh/b/Riki1312/conduit-cli)](https://skills.sh/Riki1312/conduit-cli)
+
 Conduit turns noisy developer tools into compact, structured facts for humans,
 agents, scripts, and IDEs.
 
@@ -20,17 +22,6 @@ Provider-backed commands fail clearly until a project selects a provider.
 
 The repository pins Rust `1.94.0`.
 
-Once the Homebrew tap is published, released builds can be installed with:
-
-```bash
-brew tap Riki1312/conduit
-brew install conduit
-conduit about
-```
-
-See [Install Conduit](docs/install.md) for Homebrew, release archive, source,
-and agent skill setup.
-
 Install from source:
 
 ```bash
@@ -44,11 +35,32 @@ Run without installing:
 cargo run -p conduit-cli -- about
 ```
 
+Tagged releases publish platform archives, checksums, and a generated
+Homebrew formula. Once the tap is published:
+
+```bash
+brew tap Riki1312/conduit
+brew install conduit
+conduit about
+```
+
+Agents can install the bundled Conduit skill through the open skills CLI:
+
+```bash
+npx skills add https://github.com/Riki1312/conduit-cli/tree/main/skills/conduit -a codex -g
+```
+
 Use `--help` on any command to inspect flags:
 
 ```bash
 conduit test run gradle --help
 ```
+
+## Release Maintainers
+
+Tag pushes run `.github/workflows/release.yml`, which publishes archives,
+checksum files, and a generated `conduit.rb` formula asset. Copy that formula
+into the external Homebrew tap for each release.
 
 ## Core Workflows
 
@@ -255,7 +267,6 @@ Project docs:
 - [Logs provider design](docs/logs-provider-design.md)
 - [DB provider design](docs/db-provider-design.md)
 - [Test runner UX design](docs/test-runner-ux-design.md)
-- [Install Conduit](docs/install.md)
 - [Agent skill](skills/conduit/SKILL.md)
 - [Agent guidance](AGENTS.md)
 - [Context system](context/README.md)

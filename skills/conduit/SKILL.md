@@ -32,13 +32,21 @@ failures:
 ```bash
 conduit test run gradle --tests SomeTest
 conduit test run gradle --profile integration --tests '*SdkTest'
+conduit test run gradle --task :service:test --tests SomeTest
 conduit test run gradle --failed
+conduit test run gradle --tests SomeTest --tail 40 --timeout 2m
+conduit test last
 conduit test failed --tail 20
+conduit test rerun gradle
 conduit test log --tail 80
+conduit stats
 ```
 
 Use raw build tools for non-test tasks that Conduit does not wrap, such as code
 formatting, compilation diagnostics, dependency changes, or custom build tasks.
+Prefer existing project profiles over inventing build flags. If a needed
+profile is missing, use explicit mode/args only when project docs or the user
+provide them.
 
 ## Provider Commands
 
@@ -49,6 +57,7 @@ report the setup issue instead of inventing backend-specific commands.
 conduit plugin check --provider logs
 conduit logs errors service-name --since 30m --limit 20
 conduit logs search service-name --message 'known text' --limit 0
+conduit logs wait service-name --since now --timeout 2m --message 'known text'
 
 conduit plugin check --provider openapi
 conduit openapi operation --service service-name --method GET --path /path

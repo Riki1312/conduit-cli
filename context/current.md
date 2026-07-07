@@ -142,9 +142,9 @@
 - Tag-driven release packaging lives in `.github/workflows/release.yml`.
 - Release assets include platform archives, checksum files, and a generated
   Homebrew formula based on `packaging/homebrew/conduit.rb.template`.
-- `docs/install.md` documents Homebrew, release archive, source, and agent
-  skill installation paths.
 - A compact reusable agent skill lives at `skills/conduit/SKILL.md`.
+- The README documents source install, the future Homebrew tap command, and
+  `npx skills` installation for the bundled agent skill.
 - The Homebrew tap itself is expected to live outside this repository and copy
   the generated formula from each release.
 
