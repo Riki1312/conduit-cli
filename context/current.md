@@ -137,11 +137,21 @@
 - The site should stay product-neutral and avoid company-specific workflow
   promises, private service names, credentials, or internal operational details.
 
+## Distribution
+
+- Tag-driven release packaging lives in `.github/workflows/release.yml`.
+- Release assets include platform archives, checksum files, and a generated
+  Homebrew formula based on `packaging/homebrew/conduit.rb.template`.
+- `docs/install.md` documents Homebrew, release archive, source, and agent
+  skill installation paths.
+- A compact reusable agent skill lives at `skills/conduit/SKILL.md`.
+- The Homebrew tap itself is expected to live outside this repository and copy
+  the generated formula from each release.
+
 ## Near-Term Todo
 
 - Keep README and design docs concise enough for new users to understand the
   product without reading the full design archive.
 - Add small, public-safe plugin examples when the build flow is stable enough
   to maintain.
-- Add release packaging later, likely after internal dogfooding has settled the
-  command surface.
+- Publish the Homebrew tap once the first tagged release is ready.

@@ -141,3 +141,19 @@ architecture, behavior, or workflow.
   the Pages source.
 - `evidence`: `site/index.html`; `site/styles.css`;
   `.github/workflows/pages.yml`.
+
+### 2026-07-07 00:00 - Release Assets Feed Homebrew Tap
+
+- `decision`: Conduit releases should publish checksummed platform archives
+  and a generated Homebrew formula asset from this repository; the Homebrew tap
+  should live outside the core repo and copy the generated formula for each
+  release.
+- `rationale`: The public repository should remain product-neutral and own
+  source, release artifacts, and reusable agent guidance. A separate tap keeps
+  Homebrew distribution conventional without mixing tap-only history into the
+  core project.
+- `impact`: Tag pushes run `.github/workflows/release.yml`; maintainers update
+  the external tap from the release's generated `conduit.rb`. Agent guidance is
+  distributed as a lean skill under `skills/conduit/SKILL.md`.
+- `evidence`: `.github/workflows/release.yml`; `docs/install.md`;
+  `packaging/homebrew/conduit.rb.template`; `skills/conduit/SKILL.md`.

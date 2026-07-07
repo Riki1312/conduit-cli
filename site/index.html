@@ -209,9 +209,18 @@ failures: 0</code></pre>
 
       <section class="section" id="install">
         <h2>## INSTALL</h2>
-        <p>The repository pins Rust 1.94.0.</p>
+        <p>
+          Once the Homebrew tap is published, released builds can be installed
+          with:
+        </p>
 
-        <pre><code>cargo install --path crates/conduit-cli
+        <pre><code>brew tap Riki1312/conduit
+brew install conduit
+conduit about</code></pre>
+
+        <p>The repository also pins Rust 1.94.0 for source installs.</p>
+
+        <pre><code>cargo install --path crates/conduit-cli --locked
 conduit about</code></pre>
 
         <p>Run without installing:</p>

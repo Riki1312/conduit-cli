@@ -20,8 +20,21 @@ Provider-backed commands fail clearly until a project selects a provider.
 
 The repository pins Rust `1.94.0`.
 
+Once the Homebrew tap is published, released builds can be installed with:
+
 ```bash
-cargo install --path crates/conduit-cli
+brew tap Riki1312/conduit
+brew install conduit
+conduit about
+```
+
+See [Install Conduit](docs/install.md) for Homebrew, release archive, source,
+and agent skill setup.
+
+Install from source:
+
+```bash
+cargo install --path crates/conduit-cli --locked
 conduit about
 ```
 
@@ -242,6 +255,8 @@ Project docs:
 - [Logs provider design](docs/logs-provider-design.md)
 - [DB provider design](docs/db-provider-design.md)
 - [Test runner UX design](docs/test-runner-ux-design.md)
+- [Install Conduit](docs/install.md)
+- [Agent skill](skills/conduit/SKILL.md)
 - [Agent guidance](AGENTS.md)
 - [Context system](context/README.md)
 - [Contributing](CONTRIBUTING.md)
