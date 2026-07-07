@@ -20,23 +20,7 @@ Provider-backed commands fail clearly until a project selects a provider.
 
 ## Install
 
-The repository pins Rust `1.94.0`.
-
-Install from source:
-
-```bash
-cargo install --path crates/conduit-cli --locked
-conduit about
-```
-
-Run without installing:
-
-```bash
-cargo run -p conduit-cli -- about
-```
-
-Tagged releases publish platform archives, checksums, and a generated
-Homebrew formula. Once the tap is published:
+Homebrew is the primary install path for released builds:
 
 ```bash
 brew tap Riki1312/conduit
@@ -44,11 +28,15 @@ brew install conduit
 conduit about
 ```
 
-Agents can install the bundled Conduit skill through the open skills CLI:
+Until the tap is published, install from source with the pinned Rust toolchain:
 
 ```bash
-npx skills add https://github.com/Riki1312/conduit-cli/tree/main/skills/conduit -a codex -g
+cargo install --path crates/conduit-cli --locked
+conduit about
 ```
+
+Tagged releases publish platform archives, checksums, and a generated
+Homebrew formula for tap updates.
 
 Use `--help` on any command to inspect flags:
 
@@ -56,11 +44,14 @@ Use `--help` on any command to inspect flags:
 conduit test run gradle --help
 ```
 
-## Release Maintainers
+Agents can install the bundled Conduit skill through the open skills CLI:
 
-Tag pushes run `.github/workflows/release.yml`, which publishes archives,
-checksum files, and a generated `conduit.rb` formula asset. Copy that formula
-into the external Homebrew tap for each release.
+```bash
+npx skills add https://github.com/Riki1312/conduit-cli/tree/main/skills/conduit
+```
+
+Use the `skills` CLI's `--agent` and `--global` options when you want to
+target a specific agent or install scope.
 
 ## Core Workflows
 
@@ -245,30 +236,27 @@ implementation guidance.
 
 ## Development
 
+The repository pins Rust `1.94.0`.
+
 ```bash
 cargo fmt --all
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Source layout:
+Run without installing:
 
-- `crates/conduit-cli/src/app.rs`: command parsing and dispatch.
-- `crates/conduit-cli/src/test_run.rs`: Gradle runner integration.
-- `crates/conduit-cli/src/logs.rs`: logs query model and rendering.
-- `crates/conduit-cli/src/plugin_runtime.rs`: Wasmtime component runtime.
-- `wit/`: plugin contracts.
+```bash
+cargo run -p conduit-cli -- about
+```
 
-Project docs:
+Useful project docs:
 
-- [Product direction](docs/product-direction.md)
-- [Plugin system direction](docs/plugin-system-direction.md)
-- [Building plugins](docs/plugin-build-guide.md)
-- [Logs provider design](docs/logs-provider-design.md)
-- [DB provider design](docs/db-provider-design.md)
-- [Test runner UX design](docs/test-runner-ux-design.md)
-- [Agent skill](skills/conduit/SKILL.md)
-- [Agent guidance](AGENTS.md)
-- [Context system](context/README.md)
+- [Building Plugins](docs/plugin-build-guide.md)
+- [Agent Skill](skills/conduit/SKILL.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
+
+Tag pushes run `.github/workflows/release.yml`, which publishes archives,
+checksum files, and a generated `conduit.rb` formula asset. Copy that formula
+into the external Homebrew tap for each release.

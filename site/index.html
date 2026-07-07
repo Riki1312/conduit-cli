@@ -209,20 +209,17 @@ failures: 0</code></pre>
 
       <section class="section" id="install">
         <h2>## INSTALL</h2>
-        <p>The repository pins Rust 1.94.0.</p>
-
-        <pre><code>cargo install --path crates/conduit-cli --locked
-conduit about</code></pre>
-
-        <p>Run without installing:</p>
-
-        <pre><code>cargo run -p conduit-cli -- about
-conduit test run gradle --help</code></pre>
-
-        <p>Tagged releases publish Homebrew formula assets for tap updates.</p>
+        <p>Homebrew is the primary install path for released builds.</p>
 
         <pre><code>brew tap Riki1312/conduit
-brew install conduit</code></pre>
+brew install conduit
+conduit about</code></pre>
+
+        <p>The repository also pins Rust 1.94.0 for source installs.</p>
+
+        <pre><code>cargo install --path crates/conduit-cli --locked
+conduit about
+conduit test run gradle --help</code></pre>
       </section>
     </main>
 

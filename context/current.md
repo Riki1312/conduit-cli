@@ -143,8 +143,9 @@
 - Release assets include platform archives, checksum files, and a generated
   Homebrew formula based on `packaging/homebrew/conduit.rb.template`.
 - A compact reusable agent skill lives at `skills/conduit/SKILL.md`.
-- The README documents source install, the future Homebrew tap command, and
-  `npx skills` installation for the bundled agent skill.
+- The README documents Homebrew-first install, source fallback, generic
+  `npx skills` installation for the bundled agent skill, and compact
+  maintainer release flow.
 - The Homebrew tap itself is expected to live outside this repository and copy
   the generated formula from each release.
 
