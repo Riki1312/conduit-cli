@@ -315,8 +315,10 @@ parse these JSON strings for rendering and redaction.
 
 ## Capabilities
 
-The existing plugin capability model is reused. PostgreSQL-backed plugins use
-named connection grants, plus exact secret grants for credentials:
+The existing plugin capability model is reused. DB providers can combine shared
+host capabilities with provider-specific grants. PostgreSQL-backed plugins
+typically use named connection grants, exact secret grants for credentials, and
+file-read grants only when they load project manifests:
 
 ```toml
 [plugins.company-db]
@@ -347,14 +349,14 @@ provider = "company-db"
 when a database needs TLS with a project-pinned CA bundle. In that mode, the
 configured host must match the server certificate name.
 
-The PostgreSQL capability is intentionally narrow. Plugins can read project
-manifests through `file-read-v1`, request an exact connection name, pass
-credentials read through `secret-store-v1`, and submit a single read-only query.
-Conduit core resolves the host/database from project config, enforces the
-connection grant, wraps rows as JSON, and rejects obvious non-read statements.
-For company deployments, a future gateway can centralize auth, audit, network
-policy, and environment routing outside the Conduit process without changing
-the DB provider command shape.
+The PostgreSQL capability is intentionally narrow. Plugins request an exact
+connection name, pass credentials read through the shared `secret-store-v1`
+host capability, and submit a single read-only query. Conduit core resolves the
+host/database from project config, enforces the connection grant, wraps rows as
+JSON, and rejects obvious non-read statements. A plugin may also use shared
+`file-read-v1` to load project manifests. For company deployments, a future
+gateway can centralize auth, audit, network policy, and environment routing
+outside the Conduit process without changing the DB provider command shape.
 
 ## Exit Semantics
 

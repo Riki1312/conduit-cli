@@ -32,7 +32,10 @@ match the configured command.
 ## Capabilities
 
 Plugins receive only the capabilities granted in `.conduit/conduit.toml`.
-Capabilities are exact and reviewable.
+Capabilities are exact and reviewable. Host capabilities such as file reads,
+HTTP, and secrets are shared building blocks; each provider world imports only
+the ones it can use, and project config grants the concrete paths, hosts,
+secrets, or connections available to a plugin instance.
 
 Supported grants today:
 
@@ -109,7 +112,7 @@ PostgreSQL connections default to `ssl_mode = "disable"`. Use
 bundle. When `ssl_root_cert` is configured, the connection host must match the
 server certificate name.
 
-Grant `file-read.paths` only when the DB plugin reads project files such as a
+Grant `file-read.paths` only when a plugin reads project files such as a
 service manifest.
 
 Repository config should not contain credentials, cookies, tokens, or raw log
