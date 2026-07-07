@@ -191,6 +191,9 @@ names = [
 provider = "company-db"
 ```
 
+DB plugins need `file-read.paths` only when they read project files such as a
+service manifest.
+
 Secrets are exact user-scoped grants. Conduit stores plugin secrets under
 `$CONDUIT_SECRET_DIR`, `$XDG_STATE_HOME/conduit/secrets`, or
 `~/.local/state/conduit/secrets`; repository files should not contain cookies,

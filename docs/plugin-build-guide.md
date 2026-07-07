@@ -106,7 +106,11 @@ provider = "company-db"
 
 PostgreSQL connections default to `ssl_mode = "disable"`. Use
 `ssl_mode = "require"` and `ssl_root_cert` for TLS with a project-pinned CA
-bundle.
+bundle. When `ssl_root_cert` is configured, the connection host must match the
+server certificate name.
+
+Grant `file-read.paths` only when the DB plugin reads project files such as a
+service manifest.
 
 Repository config should not contain credentials, cookies, tokens, or raw log
 captures. Use the secret capability for user-scoped auth material.

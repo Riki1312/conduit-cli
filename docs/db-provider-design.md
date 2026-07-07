@@ -344,7 +344,8 @@ provider = "company-db"
 ```
 
 `ssl_mode` defaults to `disable`; `require` can be paired with `ssl_root_cert`
-when a database needs TLS with a project-pinned CA bundle.
+when a database needs TLS with a project-pinned CA bundle. In that mode, the
+configured host must match the server certificate name.
 
 The PostgreSQL capability is intentionally narrow. Plugins can read project
 manifests through `file-read-v1`, request an exact connection name, pass
