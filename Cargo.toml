@@ -7,7 +7,7 @@ edition = "2024"
 homepage = "https://github.com/Riki1312/conduit-cli"
 license = "MIT"
 repository = "https://github.com/Riki1312/conduit-cli"
-version = "0.1.0"
+version = "0.1.1"
 
 # The profile that 'dist' will build with
 [profile.dist]
