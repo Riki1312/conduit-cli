@@ -39,6 +39,24 @@ use std::time::{Duration, SystemTime};
 
 const NAME: &str = "conduit";
 const PURPOSE: &str = "agent-first developer operations CLI";
+const HELP_LONG_ABOUT: &str = "\
+Conduit wraps noisy engineering tools and provider plugins into compact,
+structured output for humans, agents, scripts, and IDEs.
+
+Text output is deterministic by default. Pass --json when another tool should
+consume the result.";
+const HELP_AFTER: &str = "\
+Examples:
+  conduit test run gradle --tests SomeTest
+  conduit test run gradle --profile integration --tests '*SdkTest'
+  conduit test failed --tail 20
+  conduit logs search api-service --env staging --level ERROR --since 30m
+  conduit openapi search --service api-service --query customers
+  conduit db read catalog product --env staging --id <id>
+  conduit stats
+
+Use \"conduit <command> --help\" for command details.
+Use \"conduit help\" for compact machine-friendly command metadata.";
 
 /// Error returned by the CLI runner before process-level rendering.
 #[derive(Debug, PartialEq, Eq)]
@@ -103,8 +121,11 @@ pub fn run(args: impl IntoIterator<Item = String>) -> Result<u8, CliError> {
 #[derive(Debug, Parser)]
 #[command(name = "conduit")]
 #[command(about = PURPOSE)]
+#[command(long_about = HELP_LONG_ABOUT)]
+#[command(after_help = HELP_AFTER)]
 #[command(disable_help_subcommand = true)]
 struct Cli {
+    /// Print compact JSON instead of deterministic text.
     #[arg(long, global = true)]
     json: bool,
 
@@ -114,15 +135,25 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum TopLevelCommand {
+    /// Print CLI metadata and quick pointers.
     About,
+    /// Read provider-backed service database resources.
     Db(DbCommand),
+    /// Summarize local Git repository state.
     Git(GitCommand),
+    /// Print compact machine-friendly command metadata.
     Help,
+    /// Search, watch, and validate provider-backed service logs.
     Logs(Box<LogsCommand>),
+    /// Search and inspect provider-backed OpenAPI operations.
     Openapi(OpenApiCommand),
+    /// Validate WebAssembly provider plugins.
     Plugin(PluginCommand),
+    /// Show accumulated command noise-reduction counters.
     Stats,
+    /// Run tests and inspect captured test state.
     Test(TestCommand),
+    /// List Git worktrees with compact status summaries.
     Worktree(WorktreeCommand),
 }
 
@@ -134,8 +165,11 @@ struct DbCommand {
 
 #[derive(Debug, Subcommand)]
 enum DbSubcommand {
+    /// List readable resources exposed by a service database provider.
     Resources(DbResourcesArgs),
+    /// Describe fields and identity columns for one resource.
     Describe(DbDescribeArgs),
+    /// Read records by id or exact filters.
     Read(DbReadArgs),
 }
 
@@ -182,10 +216,15 @@ struct LogsCommand {
 
 #[derive(Debug, Subcommand)]
 enum LogsSubcommand {
+    /// Store or check provider authentication.
     Auth(LogsAuthArgs),
+    /// Search error logs with stack traces included.
     Errors(LogsErrorsArgs),
+    /// Search logs with structured filters.
     Search(LogsSearchArgs),
+    /// Wait until a matching log event appears.
     Wait(LogsWaitArgs),
+    /// Poll for matching log events and print updates.
     Watch(LogsWatchArgs),
 }
 
@@ -316,8 +355,11 @@ struct OpenApiCommand {
 
 #[derive(Debug, Subcommand)]
 enum OpenApiSubcommand {
+    /// List operations for a service.
     List(OpenApiListArgs),
+    /// Print one operation by method and path.
     Operation(OpenApiOperationArgs),
+    /// Search operations by path, summary, parameter, or schema text.
     Search(OpenApiSearchArgs),
 }
 
@@ -368,6 +410,7 @@ struct PluginCommand {
 
 #[derive(Debug, Subcommand)]
 enum PluginSubcommand {
+    /// Validate a plugin file or configured provider.
     Check(PluginCheckArgs),
 }
 
@@ -388,6 +431,7 @@ struct WorktreeCommand {
 
 #[derive(Debug, Subcommand)]
 enum WorktreeSubcommand {
+    /// List worktrees under a root directory.
     List(WorktreeListArgs),
 }
 
@@ -405,6 +449,7 @@ struct GitCommand {
 
 #[derive(Debug, Subcommand)]
 enum GitSubcommand {
+    /// Print branch, ahead/behind, and dirty-file counts.
     Status(GitStatusArgs),
 }
 
@@ -422,11 +467,17 @@ struct TestCommand {
 
 #[derive(Debug, Subcommand)]
 enum TestSubcommand {
+    /// Print the last stored failure summary.
     Failed(TestFailedArgs),
+    /// Parse JUnit XML and print failures.
     Failures(TestFailuresArgs),
+    /// Print the last stored test-run summary.
     Last,
+    /// Print a captured test log tail.
     Log(TestLogArgs),
+    /// Build a rerun command from the last stored failures.
     Rerun(TestRerunArgs),
+    /// Run a test command through a supported runner.
     Run(TestRunCommand),
 }
 
@@ -464,6 +515,7 @@ struct TestRunCommand {
 
 #[derive(Debug, Subcommand)]
 enum TestRunSubcommand {
+    /// Run Gradle tests with compact summaries and captured logs.
     Gradle(TestRunGradleArgs),
 }
 
@@ -657,11 +709,29 @@ impl Command {
                     ("name", NAME),
                     ("version", env!("CARGO_PKG_VERSION")),
                     ("purpose", PURPOSE),
+                    ("help", "conduit --help"),
+                    ("install", "brew install Riki1312/tap/conduit"),
+                    (
+                        "workflows",
+                        "test run gradle, logs search, openapi search, db read, stats",
+                    ),
+                    ("config", ".conduit/conduit.toml"),
+                    ("plugins", "WebAssembly provider adapters"),
+                    ("output", "compact text by default, JSON with --json"),
                 ]),
                 OutputFormat::Json => json_object([
                     ("name", NAME),
                     ("version", env!("CARGO_PKG_VERSION")),
                     ("purpose", PURPOSE),
+                    ("help", "conduit --help"),
+                    ("install", "brew install Riki1312/tap/conduit"),
+                    (
+                        "workflows",
+                        "test run gradle, logs search, openapi search, db read, stats",
+                    ),
+                    ("config", ".conduit/conduit.toml"),
+                    ("plugins", "WebAssembly provider adapters"),
+                    ("output", "compact text by default, JSON with --json"),
                 ]),
             })),
             Command::Display { output } => Ok(CommandOutcome::success(output.clone())),

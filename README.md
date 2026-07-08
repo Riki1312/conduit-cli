@@ -19,15 +19,14 @@ Project and company behavior belongs in `.conduit/conduit.toml` and plugins.
 
 ## Install
 
-Homebrew is the intended install path for released builds. After the first
-tagged release publishes the formula:
+Homebrew is the recommended install path:
 
 ```bash
 brew install Riki1312/tap/conduit
 conduit about
 ```
 
-Until the tap is published, install from source with the pinned Rust toolchain:
+For local development, install from source with the pinned Rust toolchain:
 
 ```bash
 cargo install --path crates/conduit-cli --locked

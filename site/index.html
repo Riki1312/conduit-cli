@@ -209,15 +209,12 @@ failures: 0</code></pre>
 
       <section class="section" id="install">
         <h2>## INSTALL</h2>
-        <p>
-          Homebrew is the intended install path for released builds. After the
-          first tagged release publishes the formula:
-        </p>
+        <p>Homebrew is the recommended install path:</p>
 
         <pre><code>brew install Riki1312/tap/conduit
 conduit about</code></pre>
 
-        <p>The repository also pins Rust 1.94.0 for source installs.</p>
+        <p>The repository also pins Rust 1.94.0 for local development.</p>
 
         <pre><code>cargo install --path crates/conduit-cli --locked
 conduit about

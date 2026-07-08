@@ -169,7 +169,7 @@ architecture, behavior, or workflow.
   formula generation, and tap publication, which removes custom release shell
   code.
 - `impact`: Release settings live in `dist-workspace.toml`; the generated
-  workflow lives in `.github/workflows/release.yml`; `HOMEBREW_TAP_TOKEN` must
-  be configured as a repository secret before the first tagged release.
+  workflow lives in `.github/workflows/release.yml`; `HOMEBREW_TAP_TOKEN` is
+  configured as a repository secret for tap publication.
 - `evidence`: `dist-workspace.toml`; `.github/workflows/release.yml`;
   `README.md`.

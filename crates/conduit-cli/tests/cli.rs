@@ -16,6 +16,12 @@ fn about_command_prints_compact_fields() {
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.contains("name: conduit\n"));
     assert!(stdout.contains("purpose: agent-first developer operations CLI\n"));
+    assert!(stdout.contains("help: conduit --help\n"));
+    assert!(stdout.contains("install: brew install Riki1312/tap/conduit\n"));
+    assert!(
+        stdout
+            .contains("workflows: test run gradle, logs search, openapi search, db read, stats\n")
+    );
 }
 
 #[test]
@@ -29,7 +35,25 @@ fn json_flag_prints_compact_json() {
 
     let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
     assert!(stdout.starts_with("{\"name\":\"conduit\","));
-    assert!(stdout.ends_with("\"purpose\":\"agent-first developer operations CLI\"}\n"));
+    assert!(stdout.contains("\"help\":\"conduit --help\""));
+    assert!(stdout.ends_with("\"output\":\"compact text by default, JSON with --json\"}\n"));
+}
+
+#[test]
+fn top_level_help_prints_command_descriptions() {
+    let output = conduit_command()
+        .arg("--help")
+        .output()
+        .expect("run conduit");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("Conduit wraps noisy engineering tools"));
+    assert!(stdout.contains("test      Run tests and inspect captured test state"));
+    assert!(stdout.contains("logs      Search, watch, and validate provider-backed service logs"));
+    assert!(stdout.contains("Examples:"));
+    assert!(stdout.contains("conduit test run gradle --tests SomeTest"));
 }
 
 #[test]

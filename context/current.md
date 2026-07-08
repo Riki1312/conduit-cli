@@ -145,8 +145,8 @@
 - The Homebrew formula is published to `Riki1312/homebrew-tap` as
   `Formula/conduit.rb`.
 - A compact reusable agent skill lives at `skills/conduit/SKILL.md`.
-- The release workflow requires a `HOMEBREW_TAP_TOKEN` repository secret with
-  permission to push to the tap repo.
+- The release workflow uses the `HOMEBREW_TAP_TOKEN` repository secret to push
+  formula updates to the tap repo.
 - The README documents the intended Homebrew install path through
   `Riki1312/tap`, source fallback, generic `npx skills` installation for the
   bundled agent skill, and compact maintainer release flow.
@@ -157,4 +157,5 @@
   product without reading the full design archive.
 - Add small, public-safe plugin examples when the build flow is stable enough
   to maintain.
-- Provision `HOMEBREW_TAP_TOKEN` before the first tagged cargo-dist release.
+- Keep release and install documentation aligned with the published Homebrew
+  formula.
