@@ -18,6 +18,14 @@ cargo doc --workspace --no-deps
 git diff --check
 ```
 
+When changing release settings in `dist-workspace.toml`, regenerate and check
+the cargo-dist workflow:
+
+```bash
+dist generate --mode ci
+dist generate --mode ci --check
+```
+
 ## Design Rules
 
 - Keep command output compact, deterministic, and structured.

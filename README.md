@@ -19,12 +19,11 @@ Project and company behavior belongs in `.conduit/conduit.toml` and plugins.
 
 ## Install
 
-Homebrew is the intended install path for released builds. Once the tap is
-published:
+Homebrew is the intended install path for released builds. After the first
+tagged release publishes the formula:
 
 ```bash
-brew tap Riki1312/conduit
-brew install conduit
+brew install Riki1312/tap/conduit
 conduit about
 ```
 
@@ -35,8 +34,8 @@ cargo install --path crates/conduit-cli --locked
 conduit about
 ```
 
-Tagged releases publish platform archives, checksums, and a generated
-Homebrew formula for tap updates.
+Tagged releases are built by `cargo-dist`, which publishes platform archives,
+checksums, release notes, and the Homebrew formula.
 
 Use `--help` on any command to inspect flags:
 
@@ -260,6 +259,17 @@ Useful project docs:
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
 
-Tag pushes run `.github/workflows/release.yml`, which publishes archives,
-checksum files, and a generated `conduit.rb` formula asset. Copy that formula
-into the external Homebrew tap for each release.
+Tag pushes run `.github/workflows/release.yml`, generated from
+`dist-workspace.toml` by `cargo-dist`. The release workflow publishes archives,
+checksum files, GitHub release notes, and `Formula/conduit.rb` in
+`Riki1312/homebrew-tap`.
+
+The release workflow requires a `HOMEBREW_TAP_TOKEN` repository secret with
+permission to push to `Riki1312/homebrew-tap`.
+
+When release settings change, run:
+
+```bash
+dist generate --mode ci
+dist generate --mode ci --check
+```

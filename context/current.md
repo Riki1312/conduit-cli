@@ -137,15 +137,19 @@
 
 ## Distribution
 
-- Tag-driven release packaging lives in `.github/workflows/release.yml`.
-- Release assets include platform archives, checksum files, and a generated
-  Homebrew formula based on `packaging/homebrew/conduit.rb.template`.
+- Tag-driven release packaging is managed by `cargo-dist`.
+- Release config lives in `dist-workspace.toml`.
+- The generated release workflow lives in `.github/workflows/release.yml`.
+- Release assets include platform archives, checksum files, source tarballs,
+  generated release notes, and `conduit.rb`.
+- The Homebrew formula is published to `Riki1312/homebrew-tap` as
+  `Formula/conduit.rb`.
 - A compact reusable agent skill lives at `skills/conduit/SKILL.md`.
-- The README documents the intended Homebrew install path, source fallback,
-  generic `npx skills` installation for the bundled agent skill, and compact
-  maintainer release flow.
-- The Homebrew tap itself is expected to live outside this repository and copy
-  the generated formula from each release.
+- The release workflow requires a `HOMEBREW_TAP_TOKEN` repository secret with
+  permission to push to the tap repo.
+- The README documents the intended Homebrew install path through
+  `Riki1312/tap`, source fallback, generic `npx skills` installation for the
+  bundled agent skill, and compact maintainer release flow.
 
 ## Near-Term Todo
 
@@ -153,4 +157,4 @@
   product without reading the full design archive.
 - Add small, public-safe plugin examples when the build flow is stable enough
   to maintain.
-- Publish the Homebrew tap once the first tagged release is ready.
+- Provision `HOMEBREW_TAP_TOKEN` before the first tagged cargo-dist release.

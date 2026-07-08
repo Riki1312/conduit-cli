@@ -154,6 +154,22 @@ architecture, behavior, or workflow.
   core project.
 - `impact`: Tag pushes run `.github/workflows/release.yml`; maintainers update
   the external tap from the release's generated `conduit.rb`. Agent guidance is
-  distributed as a lean skill under `skills/conduit/SKILL.md`.
+  distributed as a lean skill under `skills/conduit/SKILL.md`. Superseded by
+  the cargo-dist release workflow decision below.
 - `evidence`: `.github/workflows/release.yml`; `README.md`;
-  `packaging/homebrew/conduit.rb.template`; `skills/conduit/SKILL.md`.
+  `skills/conduit/SKILL.md`.
+
+### 2026-07-08 00:00 - Cargo-Dist Release Management
+
+- `decision`: Conduit releases should be managed by `cargo-dist`, with
+  Homebrew publishing automated to the existing shared tap
+  `Riki1312/homebrew-tap`.
+- `rationale`: `cargo-dist` is the Rust-native release automation tool for
+  Rust CLIs. It owns archive generation, checksums, release notes, Homebrew
+  formula generation, and tap publication, which removes custom release shell
+  code.
+- `impact`: Release settings live in `dist-workspace.toml`; the generated
+  workflow lives in `.github/workflows/release.yml`; `HOMEBREW_TAP_TOKEN` must
+  be configured as a repository secret before the first tagged release.
+- `evidence`: `dist-workspace.toml`; `.github/workflows/release.yml`;
+  `README.md`.

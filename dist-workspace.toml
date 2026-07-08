@@ -1,0 +1,19 @@
+[workspace]
+members = ["cargo:."]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.32.0"
+# CI backends to support
+ci = "github"
+# The installers to generate for each app
+installers = ["homebrew"]
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
+# The Homebrew tap to publish the formula to
+tap = "Riki1312/homebrew-tap"
+# Keep the Homebrew formula aligned with the binary name, not the crate name
+formula = "conduit"
+# Publish package-manager updates after GitHub release artifacts are hosted
+publish-jobs = ["homebrew"]
