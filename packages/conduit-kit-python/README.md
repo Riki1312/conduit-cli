@@ -68,5 +68,26 @@ class OpenapiProviderV1(exports.OpenapiProviderV1):
             )
 ```
 
+## DB Example
+
+```python
+from conduit_kit.capabilities.postgres import PostgresClient
+from conduit_kit.providers import db
+from wit_world import exports
+from wit_world.exports import db_provider_v1
+from wit_world.imports import postgres_query_v1
+
+
+def read_records(request: db.ReadRequest) -> db.ReadResult:
+    postgres = PostgresClient(postgres_query_v1)
+    ...
+
+
+class DbProviderV1(exports.DbProviderV1):
+    def read(self, request: db_provider_v1.ReadRequest):
+        result = read_records(db.read_request_from_wit(request))
+        return db.read_result_to_wit(db_provider_v1, result)
+```
+
 Public APIs document Conduit behavior when it is not obvious. They should not
 restate normal Python behavior.

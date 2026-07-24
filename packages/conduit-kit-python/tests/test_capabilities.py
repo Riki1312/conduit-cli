@@ -2,9 +2,16 @@ import unittest
 
 from conduit_kit.capabilities.files import FileReader
 from conduit_kit.capabilities.http import Header, HttpClient, normalize_headers
+from conduit_kit.capabilities.postgres import (
+    PostgresClient,
+    PostgresConnection,
+    PostgresError,
+    PostgresErrorKind,
+)
 from conduit_kit.errors import CapabilityError
 from conduit_kit.testing.files import FakeFileReader
 from conduit_kit.testing.http import FakeHttpClient, response
+from conduit_kit.testing.postgres import FakePostgresClient, postgres_result
 from conduit_kit.testing.secrets import FakeSecretStore
 
 
@@ -88,6 +95,53 @@ class CapabilityKitTest(unittest.TestCase):
         self.assertEqual(reader.read_text("spec.json"), "{}")
         self.assertEqual(reader.read_optional_text("missing.json"), None)
 
+    def test_postgres_client_maps_query_to_generated_binding(self):
+        binding = FakePostgresBinding()
+        client = PostgresClient(binding)
+        connection = PostgresConnection(
+            name="consumer-investment-test",
+            username="shared_rw",
+            password="secret",
+            connect_timeout_ms=1000,
+        )
+
+        result = client.query(
+            connection,
+            "select 1",
+            [],
+            timeout_ms=2000,
+        )
+
+        self.assertEqual(result.rows_json, ['{"one":1}'])
+        self.assertEqual(binding.queries[0].connection.name, "consumer-investment-test")
+        self.assertEqual(binding.queries[0].timeout_ms, 2000)
+
+    def test_postgres_client_maps_error_kind(self):
+        binding = FakePostgresBinding(
+            error=FakeBindingError(
+                Record(
+                    kind=FakePostgresBinding.PostgresErrorKind_Unavailable(),
+                    message="timeout",
+                )
+            )
+        )
+        client = PostgresClient(binding)
+
+        with self.assertRaises(PostgresError) as context:
+            client.query(PostgresConnection("db", "user", "password"), "select 1", [])
+
+        self.assertEqual(context.exception.kind, PostgresErrorKind.UNAVAILABLE)
+        self.assertEqual(context.exception.message, "timeout")
+
+    def test_fake_postgres_records_queries(self):
+        client = FakePostgresClient([postgres_result(['{"id":"1"}'])])
+        connection = PostgresConnection("db", "user", "password")
+
+        result = client.query(connection, "select * from product", ["1"])
+
+        self.assertEqual(result.rows_json, ['{"id":"1"}'])
+        self.assertEqual(client.queries[0]["params"], ["1"])
+
 
 class FakeHttpBinding:
     class HttpMethod_Get:
@@ -139,6 +193,39 @@ class FakeFileReadBinding:
 
     def read_text(self, path):
         raise FakeBindingError(Record(kind=self.kind, message=self.message))
+
+
+class FakePostgresBinding:
+    class PostgresErrorKind_InvalidRequest:
+        pass
+
+    class PostgresErrorKind_PermissionDenied:
+        pass
+
+    class PostgresErrorKind_Unavailable:
+        pass
+
+    class PostgresConnection:
+        def __init__(self, **values):
+            self.__dict__.update(values)
+
+    class PostgresQuery:
+        def __init__(self, **values):
+            self.__dict__.update(values)
+
+    class PostgresQueryResult:
+        def __init__(self, **values):
+            self.__dict__.update(values)
+
+    def __init__(self, error=None):
+        self.error = error
+        self.queries = []
+
+    def query(self, query):
+        if self.error is not None:
+            raise self.error
+        self.queries.append(query)
+        return self.PostgresQueryResult(rows_json=['{"one":1}'])
 
 
 class FakeBindingError(Exception):
