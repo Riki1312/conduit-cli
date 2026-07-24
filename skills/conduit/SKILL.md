@@ -57,6 +57,7 @@ report the setup issue instead of inventing backend-specific commands.
 conduit plugin check --provider logs
 conduit logs errors service-name --since 30m --limit 20
 conduit logs search service-name --message 'known text' --limit 0
+conduit logs search service-name --grep 'stack trace text' --include-trace
 conduit logs wait service-name --since now --timeout 2m --message 'known text'
 
 conduit plugin check --provider openapi

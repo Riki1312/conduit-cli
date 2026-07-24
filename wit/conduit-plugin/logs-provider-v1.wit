@@ -73,10 +73,15 @@ interface logs-provider-v1 {
     levels: list<string>,
     cid: option<string>,
     trace-id: option<string>,
+    /// Message-only text filter.
     message: option<string>,
+    /// Free-text filter over message, stack trace, and logger-like fields.
+    grep: option<string>,
     logger: option<string>,
     /// Message fragments that should be excluded after positive filters match.
     exclude-messages: list<string>,
+    /// Free-text fragments to exclude from message, stack trace, and logger-like fields.
+    exclude-greps: list<string>,
     /// Logger, class, module, or component fragments that should be excluded.
     exclude-loggers: list<string>,
     include-trace: bool,

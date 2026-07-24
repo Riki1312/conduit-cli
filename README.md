@@ -103,6 +103,7 @@ watch/wait loops. They require a configured logs provider.
 ```bash
 conduit logs search checkout-service --since 15m --level ERROR
 conduit logs search checkout-service --message 'known text' --limit 0
+conduit logs search checkout-service --grep 'stack trace text' --include-trace
 conduit logs errors checkout-service --since 1h --limit 20
 conduit logs wait checkout-service --since now --message 'job completed'
 conduit logs watch checkout-service --level ERROR --since now --jsonl
@@ -110,9 +111,11 @@ conduit logs auth --check
 ```
 
 Useful filters include `--env`, `--since`, `--from`, `--to`, `--date`,
-`--level`, `--cid`, `--trace-id`, `--message`, `--logger`, `--class`,
-`--exclude-message`, `--exclude-logger`, `--exclude-class`, `--limit`, and
-`--include-trace`.
+`--level`, `--cid`, `--trace-id`, `--message`, `--grep`, `--logger`,
+`--class`, `--exclude-message`, `--exclude-grep`, `--exclude-logger`,
+`--exclude-class`, `--limit`, and `--include-trace`. Use `--message` for
+message-field filters and `--grep` for broad text search across message,
+stack trace, and logger-like fields.
 
 ### OpenAPI
 

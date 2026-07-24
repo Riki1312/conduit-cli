@@ -436,6 +436,29 @@ fn logs_errors_include_stack_traces() {
 }
 
 #[test]
+fn logs_search_greps_stack_trace_without_rendering_it() {
+    let output = fixture_command()
+        .args([
+            "logs",
+            "search",
+            "fixture-service",
+            "--date",
+            "2026-05-22",
+            "--grep",
+            "IllegalStateException",
+        ])
+        .output()
+        .expect("run conduit");
+
+    assert!(output.status.success());
+
+    let stdout = String::from_utf8(output.stdout).expect("stdout is utf8");
+    assert!(stdout.contains("matches: 1\nshown: 1\n"));
+    assert!(stdout.contains("message: ACCOUNT_NOT_ACTIVATED\n"));
+    assert!(!stdout.contains("stack_trace:"));
+}
+
+#[test]
 fn logs_search_excludes_known_noise() {
     let output = fixture_command()
         .args([

@@ -329,6 +329,9 @@ struct LogsFilterArgs {
     message: Option<String>,
 
     #[arg(long)]
+    grep: Option<String>,
+
+    #[arg(long)]
     logger: Option<String>,
 
     #[arg(long = "class")]
@@ -336,6 +339,9 @@ struct LogsFilterArgs {
 
     #[arg(long = "exclude-message")]
     exclude_messages: Vec<String>,
+
+    #[arg(long = "exclude-grep")]
+    exclude_greps: Vec<String>,
 
     #[arg(long = "exclude-logger")]
     exclude_loggers: Vec<String>,
@@ -1471,8 +1477,10 @@ fn log_query(
         cid,
         trace_id: filters.trace_id.clone(),
         message: filters.message.clone(),
+        grep: filters.grep.clone(),
         logger,
         exclude_messages: filters.exclude_messages.clone(),
+        exclude_greps: filters.exclude_greps.clone(),
         exclude_loggers,
         include_trace: filters.include_trace,
         cursor: None,
@@ -2011,8 +2019,10 @@ mod tests {
         filters.environment = Some("staging".to_string());
         filters.since = Some("30m".to_string());
         filters.cid = Some("CID-123".to_string());
+        filters.grep = Some("IllegalStateException".to_string());
         filters.logger = Some("FixturePaymentService".to_string());
         filters.exclude_messages = vec!["known noise".to_string()];
+        filters.exclude_greps = vec!["known trace noise".to_string()];
         filters.exclude_class_names = vec!["NoisyClass".to_string()];
         filters.include_trace = true;
 
@@ -2029,10 +2039,14 @@ mod tests {
                 "ERROR".to_string(),
                 "--cid".to_string(),
                 "CID-123".to_string(),
+                "--grep".to_string(),
+                "IllegalStateException".to_string(),
                 "--logger".to_string(),
                 "FixturePaymentService".to_string(),
                 "--exclude-message".to_string(),
                 "known noise".to_string(),
+                "--exclude-grep".to_string(),
+                "known trace noise".to_string(),
                 "--exclude-class".to_string(),
                 "NoisyClass".to_string(),
                 "--include-trace".to_string(),

@@ -38,8 +38,9 @@ Start with a small command set:
 ```bash
 conduit logs search SERVICE --cid PaM9CQjf --since 30m
 conduit logs search SERVICE --message ACCOUNT_NOT_ACTIVATED --since 1h
+conduit logs search SERVICE --grep 'reject HostKey' --since 24h
 conduit logs search SERVICE --logger TradeIntentService --level error --date 2026-05-22
-conduit logs search SERVICE --exclude-class NoisyLogger --exclude-message "known noise" --limit 0
+conduit logs search SERVICE --exclude-class NoisyLogger --exclude-grep "known trace noise" --limit 0
 conduit logs errors SERVICE --since 15m --limit 20
 conduit logs watch SERVICE --level error --since now --interval 5s
 conduit logs watch SERVICE --level error --since now --interval 5s --timeout 2m
@@ -83,10 +84,14 @@ The first core filters should cover the most common debugging tasks:
 - `--level`: repeatable severity filter.
 - `--cid` / `--correlation-id`: correlation id filter.
 - `--trace-id`: distributed trace id filter.
-- `--message`: message text filter.
+- `--message`: message-field text filter.
+- `--grep`: broad text filter over message, stack trace, and logger-like
+  fields.
 - `--logger`: logger, class, module, or component filter.
 - `--class`: alias for `--logger`, useful in Java services.
-- `--exclude-message`: repeatable message text exclusion.
+- `--exclude-message`: repeatable message-field text exclusion.
+- `--exclude-grep`: repeatable broad text exclusion over message, stack trace,
+  and logger-like fields.
 - `--exclude-logger`: repeatable logger, class, module, or component exclusion.
 - `--exclude-class`: alias for `--exclude-logger`, useful in Java services.
 - `--include-trace`: include stack traces or extended exception fields.
@@ -232,8 +237,10 @@ levels: list string
 cid: optional string
 trace_id: optional string
 message: optional string
+grep: optional string
 logger: optional string
 exclude_messages: list string
+exclude_greps: list string
 exclude_loggers: list string
 include_trace: boolean
 cursor: optional string

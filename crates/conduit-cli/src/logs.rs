@@ -95,8 +95,10 @@ pub(crate) struct LogQuery {
     pub(crate) cid: Option<String>,
     pub(crate) trace_id: Option<String>,
     pub(crate) message: Option<String>,
+    pub(crate) grep: Option<String>,
     pub(crate) logger: Option<String>,
     pub(crate) exclude_messages: Vec<String>,
+    pub(crate) exclude_greps: Vec<String>,
     pub(crate) exclude_loggers: Vec<String>,
     pub(crate) include_trace: bool,
     pub(crate) cursor: Option<String>,
@@ -986,6 +988,10 @@ fn log_matches(event: &LogEvent, query: &LogQuery) -> bool {
             .message
             .as_deref()
             .is_none_or(|message| contains_case_insensitive(&event.message, message))
+        && query
+            .grep
+            .as_deref()
+            .is_none_or(|grep| log_text_matches(event, grep))
         && query.logger.as_deref().is_none_or(|logger| {
             contains_case_insensitive(event.logger.as_deref().unwrap_or_default(), logger)
         })
@@ -993,9 +999,25 @@ fn log_matches(event: &LogEvent, query: &LogQuery) -> bool {
             .exclude_messages
             .iter()
             .any(|message| contains_case_insensitive(&event.message, message))
+        && !query
+            .exclude_greps
+            .iter()
+            .any(|grep| log_text_matches(event, grep))
         && !query.exclude_loggers.iter().any(|logger| {
             contains_case_insensitive(event.logger.as_deref().unwrap_or_default(), logger)
         })
+}
+
+fn log_text_matches(event: &LogEvent, needle: &str) -> bool {
+    contains_case_insensitive(&event.message, needle)
+        || event
+            .stack_trace
+            .as_deref()
+            .is_some_and(|stack_trace| contains_case_insensitive(stack_trace, needle))
+        || event
+            .logger
+            .as_deref()
+            .is_some_and(|logger| contains_case_insensitive(logger, needle))
 }
 
 fn contains_case_insensitive(value: &str, needle: &str) -> bool {
@@ -1132,6 +1154,28 @@ mod tests {
     }
 
     #[test]
+    fn fixture_provider_greps_message_stack_trace_and_logger() {
+        let query = LogQuery {
+            grep: Some("illegalstateexception".to_string()),
+            include_trace: true,
+            ..fixture_query()
+        };
+
+        let result = FixtureLogProvider.search(&query).unwrap();
+
+        assert_eq!(result.matches, 1);
+        assert_eq!(result.logs[0].message, "ACCOUNT_NOT_ACTIVATED");
+
+        let query = LogQuery {
+            grep: Some("paymentservice".to_string()),
+            ..fixture_query()
+        };
+        let result = FixtureLogProvider.search(&query).unwrap();
+
+        assert_eq!(result.matches, 2);
+    }
+
+    #[test]
     fn fixture_provider_excludes_messages_and_loggers() {
         let query = LogQuery {
             exclude_messages: vec!["accepted".to_string()],
@@ -1151,6 +1195,19 @@ mod tests {
         let result = FixtureLogProvider.search(&query).unwrap();
 
         assert_eq!(result.matches, 0);
+    }
+
+    #[test]
+    fn fixture_provider_excludes_grep_matches() {
+        let query = LogQuery {
+            exclude_greps: vec!["IllegalStateException".to_string()],
+            ..fixture_query()
+        };
+
+        let result = FixtureLogProvider.search(&query).unwrap();
+
+        assert_eq!(result.matches, 1);
+        assert_eq!(result.logs[0].message, "payment accepted");
     }
 
     #[test]
@@ -1209,8 +1266,10 @@ mod tests {
             cid: None,
             trace_id: None,
             message: None,
+            grep: None,
             logger: None,
             exclude_messages: Vec::new(),
+            exclude_greps: Vec::new(),
             exclude_loggers: Vec::new(),
             include_trace: false,
             cursor: None,
