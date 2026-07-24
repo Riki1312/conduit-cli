@@ -257,6 +257,7 @@ cargo run -p conduit-cli -- about
 Useful project docs:
 
 - [Building Plugins](docs/plugin-build-guide.md)
+- [Python Plugin Kit Direction](docs/conduit-kit-python-direction.md)
 - [Agent Skill](skills/conduit/SKILL.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
