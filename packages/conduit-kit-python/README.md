@@ -39,5 +39,34 @@ class LogsProviderV1(exports.LogsProviderV1):
             )
 ```
 
+## OpenAPI Example
+
+```python
+from conduit_kit import errors
+from conduit_kit.capabilities.files import FileReader
+from conduit_kit.providers import openapi
+from wit_world import exports
+from wit_world.exports import openapi_provider_v1
+from wit_world.imports import file_read_v1
+
+
+def load_operations(request: openapi.OperationRequest) -> list[openapi.Operation]:
+    manifest = FileReader(file_read_v1).read_optional_text(".conduit/openapi.json")
+    ...
+
+
+class OpenapiProviderV1(exports.OpenapiProviderV1):
+    def operations(self, request: openapi_provider_v1.OperationRequest):
+        try:
+            result = load_operations(openapi.operation_request_from_wit(request))
+            return openapi.operations_to_wit(openapi_provider_v1, result)
+        except ValueError as error:
+            raise errors.provider_error(
+                openapi_provider_v1,
+                errors.ProviderErrorKind.INVALID_REQUEST,
+                str(error),
+            )
+```
+
 Public APIs document Conduit behavior when it is not obvious. They should not
 restate normal Python behavior.

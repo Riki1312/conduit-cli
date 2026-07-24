@@ -10,6 +10,7 @@ class ProviderErrorKind(Enum):
 
     AUTH_REQUIRED = "AuthRequired"
     INVALID_REQUEST = "InvalidRequest"
+    NOT_FOUND = "NotFound"
     PERMISSION_DENIED = "PermissionDenied"
     UNAVAILABLE = "Unavailable"
     UNSUPPORTED = "Unsupported"
