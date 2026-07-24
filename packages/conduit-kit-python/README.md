@@ -1,0 +1,43 @@
+# conduit-kit
+
+`conduit-kit` is a small Python authoring kit for Conduit plugins. It keeps
+generated WIT bindings at the edge of the plugin and lets adapter code work
+with plain Python dataclasses.
+
+The kit is experimental. Its API should stay narrow until real plugin
+migrations prove that it reduces glue without hiding Conduit contract
+semantics.
+
+## Logs Example
+
+```python
+from conduit_kit import errors
+from conduit_kit.capabilities.http import HttpClient
+from conduit_kit.capabilities.secrets import SecretStore
+from conduit_kit.providers import logs
+from wit_world import exports
+from wit_world.exports import logs_provider_v1, metadata
+from wit_world.imports import http_client_v2, secret_store_v1
+
+
+def search(query: logs.Query) -> logs.SearchResult:
+    http = HttpClient(http_client_v2)
+    secrets = SecretStore(secret_store_v1)
+    ...
+
+
+class LogsProviderV1(exports.LogsProviderV1):
+    def search(self, query: logs_provider_v1.LogQuery):
+        try:
+            result = search(logs.query_from_wit(query))
+            return logs.search_result_to_wit(logs_provider_v1, result)
+        except ValueError as error:
+            raise errors.provider_error(
+                logs_provider_v1,
+                errors.ProviderErrorKind.INVALID_REQUEST,
+                str(error),
+            )
+```
+
+Public APIs document Conduit behavior when it is not obvious. They should not
+restate normal Python behavior.

@@ -1,0 +1,11 @@
+[project]
+name = "conduit-kit"
+version = "0.1.0"
+description = "Small Python authoring kit for Conduit plugins."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
